@@ -6,10 +6,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "create": "ts-node node_modules/@bettercorp/service-base/lib/bootstrap.js $0",
-    "dev": "nodemon --config node_modules/@bettercorp/service-base/build/nodemon.json",
-    "start": "ts-node node_modules/@bettercorp/service-base/lib/index.js",
-    "version": "node ./node_modules/@bettercorp/service-base/build/version-bcorp.js $0"
+    "dev": "nodemon --config node_modules/@bettercorp/service-base/development/nodemon.json",
+    "start": "ts-node node_modules/@bettercorp/service-base/lib/cli.js"
   },
   "files": [
     "lib/**/*"
