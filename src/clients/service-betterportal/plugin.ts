@@ -1,25 +1,23 @@
-import { ServiceCallable, ServicesBase, ServicesClient } from "@bettercorp/service-base";
 import {
-  FastifyReply
-} from "fastify";
-import {
-  FastifyHeadersWithIP,
-} from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-fastify/lib";
+  ServiceCallable,
+  ServicesBase,
+  ServicesClient,
+} from "@bettercorp/service-base";
+import { FastifyReply } from "fastify";
+import { FastifyHeadersWithIP } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-fastify/lib";
 import { MyPluginConfig } from "../../plugins/service-betterportal/sec.config";
 import { BSBFastifyCallable } from "../../plugins/service-betterportal/plugin";
-import { AuthToken, FastifyRequestPath } from '../../index';
-import { EJWTTokenType } from '@bettercorp/service-base-plugin-web-server/lib/plugins/service-webjwt/sec.config';
+import { AuthToken, FastifyRequestPath } from "../../index";
+import { EJWTTokenType } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-webjwt/sec.config";
 
-export class fastify
-  extends ServicesClient<
-    ServiceCallable,
-    ServiceCallable,
-    ServiceCallable,
-    ServiceCallable,
-    BSBFastifyCallable,
-    MyPluginConfig
-  >
-{
+export class fastify extends ServicesClient<
+  ServiceCallable,
+  ServiceCallable,
+  ServiceCallable,
+  ServiceCallable,
+  BSBFastifyCallable,
+  MyPluginConfig
+> {
   private readonly _serviceName: string;
   constructor(self: ServicesBase, serviceName: string) {
     super(self);
@@ -36,7 +34,7 @@ export class fastify
     Path extends string,
     Body = any,
     Querystring = any,
-    Headers = FastifyHeadersWithIP,
+    Headers = FastifyHeadersWithIP
   >(
     path: Path,
     permissionRequired: string,
@@ -53,14 +51,23 @@ export class fastify
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean
   ): Promise<void> {
-    await this._plugin.callPluginMethod("get", this._serviceName, path, permissionRequired, listener, roles, allowedTokenTypes, optionalAuth);
+    await this._plugin.callPluginMethod(
+      "get",
+      this._serviceName,
+      path,
+      permissionRequired,
+      listener,
+      roles,
+      allowedTokenTypes,
+      optionalAuth
+    );
   }
 
   public async post<
     Path extends string,
     Body = any,
     Querystring = any,
-    Headers = FastifyHeadersWithIP,
+    Headers = FastifyHeadersWithIP
   >(
     path: Path,
     permissionRequired: string,
@@ -77,14 +84,23 @@ export class fastify
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean
   ): Promise<void> {
-    await this._plugin.callPluginMethod("post", this._serviceName, path, permissionRequired, listener, roles, allowedTokenTypes, optionalAuth);
+    await this._plugin.callPluginMethod(
+      "post",
+      this._serviceName,
+      path,
+      permissionRequired,
+      listener,
+      roles,
+      allowedTokenTypes,
+      optionalAuth
+    );
   }
 
   public async put<
     Path extends string,
     Body = any,
     Querystring = any,
-    Headers = FastifyHeadersWithIP,
+    Headers = FastifyHeadersWithIP
   >(
     path: Path,
     permissionRequired: string,
@@ -101,14 +117,23 @@ export class fastify
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean
   ): Promise<void> {
-    await this._plugin.callPluginMethod("put", this._serviceName, path, permissionRequired, listener, roles, allowedTokenTypes, optionalAuth);
+    await this._plugin.callPluginMethod(
+      "put",
+      this._serviceName,
+      path,
+      permissionRequired,
+      listener,
+      roles,
+      allowedTokenTypes,
+      optionalAuth
+    );
   }
 
   public async delete<
     Path extends string,
     Body = any,
     Querystring = any,
-    Headers = FastifyHeadersWithIP,
+    Headers = FastifyHeadersWithIP
   >(
     path: Path,
     permissionRequired: string,
@@ -125,14 +150,23 @@ export class fastify
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean
   ): Promise<void> {
-    await this._plugin.callPluginMethod("delete", this._serviceName, path, permissionRequired, listener, roles, allowedTokenTypes, optionalAuth);
+    await this._plugin.callPluginMethod(
+      "delete",
+      this._serviceName,
+      path,
+      permissionRequired,
+      listener,
+      roles,
+      allowedTokenTypes,
+      optionalAuth
+    );
   }
 
   public async patch<
     Path extends string,
     Body = any,
     Querystring = any,
-    Headers = FastifyHeadersWithIP,
+    Headers = FastifyHeadersWithIP
   >(
     path: Path,
     permissionRequired: string,
@@ -149,6 +183,15 @@ export class fastify
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean
   ): Promise<void> {
-    await this._plugin.callPluginMethod("patch", this._serviceName, path, permissionRequired, listener, roles, allowedTokenTypes, optionalAuth);
+    await this._plugin.callPluginMethod(
+      "patch",
+      this._serviceName,
+      path,
+      permissionRequired,
+      listener,
+      roles,
+      allowedTokenTypes,
+      optionalAuth
+    );
   }
 }
