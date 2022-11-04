@@ -12,7 +12,8 @@
   },
   "files": [
     "lib/**/*",
-    "ui/**/*"
+    "ui/**/*",
+    "scripts/**/*"
   ],
   "main": "lib/index.js",
   "version": "1.0.0",
