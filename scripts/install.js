@@ -1,33 +1,26 @@
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from "fs";
-import { join } from "path";
+const fs = require('fs');
+const path = require('path');
 
 const cwd = process.cwd();
-const BPSDK_UI_DIR = join(
+const BPSDK_UI_DIR = path.join(
   cwd,
   "./node_modules/@bettercorp/service-base-plugin-betterportal"
 );
 
-const packageJsonFile = join(cwd, "./package.json");
-let packageJSON = JSON.parse(readFileSync(packageJsonFile).toString());
+const packageJsonFile = path.join(cwd, "./package.json");
+let packageJSON = JSON.parse(fs.readFileSync(packageJsonFile).toString());
 
 if (packageJSON.name === "@bettercorp/service-base-plugin-betterportal") return;
 
-const uiDir = join(cwd, "./ui");
-if (!existsSync(uiDir)) mkdirSync(uiDir);
+const uiDir = path.join(cwd, "./ui");
+if (!fs.existsSync(uiDir)) fs.mkdirSync(uiDir);
 
-const uiSrcDir = join(uiDir, "./src");
-if (!existsSync(uiSrcDir)) mkdirSync(uiSrcDir);
+const uiSrcDir = path.join(uiDir, "./src");
+if (!fs.existsSync(uiSrcDir)) fs.mkdirSync(uiSrcDir);
 
-for (let file of readdirSync(BPSDK_UI_DIR, { withFileTypes: true })) {
+for (let file of fs.readdirSync(BPSDK_UI_DIR, { withFileTypes: true })) {
   if (file.isDirectory()) continue;
-  copyFileSync(join(BPSDK_UI_DIR, file.name), join(uiDir, file.name));
+  fs.copyFileSync(path.join(BPSDK_UI_DIR, file.name), path.join(uiDir, file.name));
 }
 
 packageJSON.scripts = packageJSON.scripts || {};
@@ -44,4 +37,4 @@ if (packageJSON.files.indexOf("lib/**/*") >= 0)
 if (packageJSON.files.indexOf("bpui/**/*") >= 0)
   packageJSON.files.push("bpui/**/*");
 
-writeFileSync(packageJsonFile, JSON.stringify(packageJSON, [" "], 2));
+fs.writeFileSync(packageJsonFile, JSON.stringify(packageJSON, [" "], 2));
