@@ -14,6 +14,11 @@ const BPSDK_UI_DIR = join(
   "./node_modules/@bettercorp/service-base-plugin-betterportal"
 );
 
+const packageJsonFile = join(cwd, "./package.json");
+let packageJSON = JSON.parse(readFileSync(packageJsonFile).toString());
+
+if (packageJSON.name === "@bettercorp/service-base-plugin-betterportal") return;
+
 const uiDir = join(cwd, "./ui");
 if (!existsSync(uiDir)) mkdirSync(uiDir);
 
@@ -24,9 +29,6 @@ for (let file of readdirSync(BPSDK_UI_DIR, { withFileTypes: true })) {
   if (file.isDirectory()) continue;
   copyFileSync(join(BPSDK_UI_DIR, file.name), join(uiDir, file.name));
 }
-
-const packageJsonFile = join(cwd, "./package.json");
-let packageJSON = JSON.parse(readFileSync(packageJsonFile).toString());
 
 packageJSON.scripts = packageJSON.scripts || {};
 packageJSON.scripts.build = "tsc";
