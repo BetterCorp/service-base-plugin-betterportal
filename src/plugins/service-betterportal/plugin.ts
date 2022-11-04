@@ -163,7 +163,7 @@ export class Service
     });
   }
   public async initBPUI(serviceName: string, path: string): Promise<void> {
-    const bpuiDir = join(path, "./content/bpui/");
+    const bpuiDir = join(path, "./bpui/");
     if (existsSync(bpuiDir)) {
       this.log.info("BPUI Enabled: {dir} ({serviceName})", {
         dir: bpuiDir,
@@ -221,12 +221,12 @@ export class Service
       };
 
       for (let appName of readdirSync(bpuiDir, { withFileTypes: true })) {
-        if (!appName.isDirectory) continue;
+        if (!appName.isDirectory()) continue;
         cacheConfig[appName.name] = cacheConfig[appName.name] || {};
         for (let moduleName of readdirSync(join(bpuiDir, appName.name), {
           withFileTypes: true,
         })) {
-          if (!moduleName.isFile) continue;
+          if (!moduleName.isFile()) continue;
           cacheConfig[appName.name][moduleName.name] = this.createMD5(
             join(bpuiDir, appName.name, moduleName.name)
           );

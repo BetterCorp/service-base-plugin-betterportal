@@ -1,0 +1,49 @@
+{
+  "name": "betterportal-ui-builder",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "rm -rfv ../bpui; vue-compile src -o ../bpui",
+    "compile": "rm -rfv ./lib ; vue-compile src -o lib ; mv lib/bpui/3/profile.vue lib/bpui/3/profile.js; mv lib/assets lib/bpui/assets"
+  },
+  "author": "BetterCorp",
+  "license": "AGPL-3.0-only",
+  "dependencies": {
+    "@bettercorp/betterportal-sdk": "^0.0.1",
+    "@types/vue": "^2.0.0",
+    "@vuestic/ag-grid-theme": "^1.0.3",
+    "@vueuse/core": "^9.3.0",
+    "pinia": "^2.0.21",
+    "sass": "^1.55.0",
+    "tsc": "^2.0.4",
+    "vfonts": "^0.0.3",
+    "vue": "^3.2.38",
+    "vue-router": "^4.1.5",
+    "vuestic-ui": "^1.4.10"
+  },
+  "devDependencies": {
+    "@rushstack/eslint-patch": "^1.1.4",
+    "@types/jsdom": "^20.0.0",
+    "@types/node": "^16.11.68",
+    "@vitejs/plugin-vue": "^3.0.3",
+    "@vitejs/plugin-vue-jsx": "^2.0.1",
+    "@vue/eslint-config-prettier": "^7.0.0",
+    "@vue/eslint-config-typescript": "^11.0.0",
+    "@vue/test-utils": "^2.0.2",
+    "@vue/tsconfig": "^0.1.3",
+    "cypress": "^10.7.0",
+    "eslint": "^8.22.0",
+    "eslint-plugin-cypress": "^2.12.1",
+    "eslint-plugin-vue": "^9.3.0",
+    "jsdom": "^20.0.0",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^2.7.1",
+    "typescript": "~4.7.4",
+    "vite": "^3.0.9",
+    "vitest": "^0.23.0",
+    "vue-cli-plugin-vuestic-ui": "~1.0.9",
+    "vue-compile": "^1.1.2",
+    "vue-tsc": "^1.0.8"
+  }
+}

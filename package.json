@@ -7,10 +7,12 @@
   "scripts": {
     "build": "tsc",
     "dev": "nodemon --config node_modules/@bettercorp/service-base/development/nodemon.json",
-    "start": "ts-node node_modules/@bettercorp/service-base/lib/cli.js"
+    "start": "ts-node node_modules/@bettercorp/service-base/lib/cli.js",
+    "postinstall": "node node_modules/@bettercorp/service-base-plugin-betterportal/lib/postinstall.js"
   },
   "files": [
-    "lib/**/*"
+    "lib/**/*",
+    "ui/**/*"
   ],
   "main": "lib/index.js",
   "version": "1.0.0",
