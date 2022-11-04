@@ -43,4 +43,4 @@ if (packageJSON.files.indexOf("lib/**/*") >= 0)
 if (packageJSON.files.indexOf("bpui/**/*") >= 0)
   packageJSON.files.push("bpui/**/*");
 
-fs.writeFileSync(packageJsonFile, JSON.stringify(packageJSON, [" "], 2));
+fs.writeFileSync(packageJsonFile, JSON.stringify(packageJSON, " ", 2));
