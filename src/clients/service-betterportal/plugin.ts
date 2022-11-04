@@ -19,16 +19,23 @@ export class fastify extends ServicesClient<
   MyPluginConfig
 > {
   private readonly _serviceName: string;
-  constructor(self: ServicesBase, serviceName: string) {
+  private readonly _pluginBase: string;
+  constructor(self: ServicesBase, serviceName: string, pluginBase: string) {
     super(self);
     this._serviceName = serviceName;
+    this._pluginBase = pluginBase;
   }
   public override readonly _pluginName: string = "service-betterportal";
-  public override readonly initAfterPlugins: string[] = [
-    "service-fastify",
-    "service-webjwt",
-  ];
-  public override readonly runBeforePlugins: string[] = ["service-fastify"];
+
+  public async initBPUI(
+    path: string
+  ): Promise<void> {
+    await this._plugin.callPluginMethod(
+      "initBPUI",
+      this._serviceName,
+      this._pluginBase
+    );
+  }
 
   public async get<
     Path extends string,

@@ -9,7 +9,7 @@ import {
 } from "@bettercorp/service-base-plugin-web-server";
 import { EJWTTokenType } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-webjwt/sec.config";
 import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
-import { Tools } from "@bettercorp/tools/lib/Tools";
+import { CleanStringStrength, Tools } from "@bettercorp/tools/lib/Tools";
 import { FastifyReply } from "fastify";
 import type {
   AuthToken,
@@ -18,8 +18,12 @@ import type {
   FastifyRequestPathParams,
 } from "../../index";
 import type { MyPluginConfig } from "./sec.config";
+import { join } from "path";
+import { existsSync, createReadStream, readdirSync } from "fs";
+import { createHash } from "crypto";
 
 export interface BSBFastifyCallable extends ServiceCallable {
+  initBPUI(serviceName: string, path: string): Promise<void>;
   get<Path extends string>(
     serviceName: string,
     path: Path,
@@ -127,13 +131,128 @@ export class Service
   >
   implements BSBFastifyCallable
 {
+  public override readonly initAfterPlugins: string[] = [
+    "service-fastify",
+    "service-webjwt",
+  ];
+  public override readonly runBeforePlugins: string[] = ["service-fastify"];
+
   private fastify: fastify;
   private webJwt!: webJwtLocal;
-  constructor(pluginName: string, cwd: string, log: IPluginLogger) {
-    super(pluginName, cwd, log);
+  constructor(
+    pluginName: string,
+    cwd: string,
+    pluginCwd: string,
+    log: IPluginLogger
+  ) {
+    super(pluginName, cwd, pluginCwd, log);
     this.fastify = new fastify(this);
   }
   private readonly _service2FAMaxTime = 5 * 60 * 1000;
+  private createMD5(filePath: string) {
+    return new Promise((res, rej) => {
+      const hash = createHash("md5");
+
+      const rStream = createReadStream(filePath);
+      rStream.on("data", (data) => {
+        hash.update(data);
+      });
+      rStream.on("end", () => {
+        res(hash.digest("hex"));
+      });
+    });
+  }
+  public async initBPUI(serviceName: string, path: string): Promise<void> {
+    const bpuiDir = join(path, "./content/bpui/");
+    if (existsSync(bpuiDir)) {
+      this.log.info("BPUI Enabled: {dir} ({serviceName})", {
+        dir: bpuiDir,
+        serviceName,
+      });
+      let cacheConfig: any = {};
+
+      // "/bpui/:appId/:moduleId/:moduleType/"
+      const requestListener = (
+        oappName: string,
+        omoduleName: string,
+        request: FastifyRequestPath<string>,
+        reply: FastifyReply
+      ) => {
+        const appName =
+          Tools.cleanString(oappName, 50, CleanStringStrength.exhard, false) ||
+          "_";
+        const moduleName =
+          Tools.cleanString(
+            omoduleName,
+            255,
+            CleanStringStrength.hard,
+            false
+          ) || "_._";
+        if (cacheConfig[appName] === undefined)
+          return reply.status(404).send("File not found");
+        if (
+          [".js", ".css", ".vue"].filter((x) => moduleName.indexOf(x) > 0)
+            .length === 0
+        )
+          return reply.status(404).send("File not found");
+        if (cacheConfig[appName][moduleName] === undefined)
+          return reply.status(404).send("File not found");
+        const bpContentFile = join(bpuiDir, `./${appName}/${moduleName}`);
+        if (!existsSync(bpContentFile))
+          return reply.status(404).send("File not found");
+
+        if (moduleName.endsWith(".js")) reply.type("application/javascript");
+        else if (moduleName.endsWith(".vue"))
+          reply.type("application/javascript");
+        else if (moduleName.endsWith(".css")) reply.type("text/css");
+        else return reply.status(404).send("File type not found");
+
+        reply.header("ETag", cacheConfig[appName][moduleName]);
+        reply.header(
+          "Cache-Control",
+          "max-age=604800, must-revalidate, no-transform, stale-while-revalidate=86400, stale-if-error"
+        );
+        if (
+          request.headers["if-none-match"] === cacheConfig[appName][moduleName]
+        ) {
+          return reply.code(304).send("");
+        }
+        return reply.status(200).send(createReadStream(bpContentFile));
+      };
+
+      for (let appName of readdirSync(bpuiDir, { withFileTypes: true })) {
+        if (!appName.isDirectory) continue;
+        cacheConfig[appName.name] = cacheConfig[appName.name] || {};
+        for (let moduleName of readdirSync(join(bpuiDir, appName.name), {
+          withFileTypes: true,
+        })) {
+          if (!moduleName.isFile) continue;
+          cacheConfig[appName.name][moduleName.name] = this.createMD5(
+            join(bpuiDir, appName.name, moduleName.name)
+          );
+          this.log.info(
+            "BPUI Cache: /bpui/{appName}/{moduleName} ({serviceName})",
+            {
+              appName: appName.name,
+              moduleName: moduleName.name,
+              serviceName,
+            }
+          );
+
+          await this.fastify.get(
+            `/bpui/${appName.name}/${moduleName.name}`,
+            (req, reply) =>
+              requestListener(
+                appName.name,
+                moduleName.name,
+                req as any,
+                reply as any
+              )
+          );
+        }
+      }
+    }
+  }
   public override async init(): Promise<void> {
     this.webJwt = new webJwtLocal(
       this,
