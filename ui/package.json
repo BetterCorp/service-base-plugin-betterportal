@@ -1,5 +1,5 @@
 {
-  "name": "betterportal-ui-builder",
+  "name": "betterportal-ui",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -10,7 +10,7 @@
   "author": "BetterCorp",
   "license": "AGPL-3.0-only",
   "dependencies": {
-    "@bettercorp/betterportal-sdk": "^0.0.1",
+    "@bettercorp/betterportal-sdk": "^1.0.2",
     "@types/vue": "^2.0.0",
     "@vuestic/ag-grid-theme": "^1.0.3",
     "@vueuse/core": "^9.3.0",
