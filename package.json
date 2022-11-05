@@ -20,6 +20,7 @@
   "bsb_project": true,
   "devDependencies": {
     "@types/jsonwebtoken": "^8.5.9",
+    "@types/mime-types": "^2.1.1",
     "@typescript-eslint/eslint-plugin": "^5.40.1",
     "@typescript-eslint/parser": "^5.40.1",
     "eslint": "^8.25.0",
@@ -31,6 +32,7 @@
     "@bettercorp/service-base-plugin-web-server": "^5.0.5",
     "@bettercorp/tools": "^2.1.16",
     "@types/node": "^18.11.3",
-    "fastify-express": "^0.4.0"
+    "fastify-express": "^0.4.0",
+    "mime-types": "^2.1.35"
   }
 }

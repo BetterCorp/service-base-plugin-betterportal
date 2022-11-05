@@ -18,9 +18,10 @@ import type {
   FastifyRequestPathParams,
 } from "../../index";
 import type { MyPluginConfig } from "./sec.config";
-import { join } from "path";
-import { existsSync, createReadStream, readdirSync } from "fs";
+import path, { join } from "path";
+import { existsSync, createReadStream, readdirSync, readdir, stat } from "fs";
 import { createHash } from "crypto";
+import { contentType } from "mime-types";
 
 export interface BSBFastifyCallable extends ServiceCallable {
   initBPUI(serviceName: string, path: string): Promise<void>;
@@ -149,6 +150,32 @@ export class Service
     this.fastify = new fastify(this);
   }
   private readonly _service2FAMaxTime = 5 * 60 * 1000;
+  private walkFilePath(dir: string): Promise<Array<string>> {
+    const self = this;
+    return new Promise((resolve, reject) => {
+      let results: Array<any> = [];
+      readdir(dir, (err, list) => {
+        if (err) return reject(err);
+        var pending = list.length;
+        if (!pending) return resolve(results);
+        list.forEach((file) => {
+          file = path.resolve(dir, file);
+          stat(file, (err, stat) => {
+            if (stat && stat.isDirectory()) {
+              self.walkFilePath(file).then((res) => {
+                results = results.concat(res);
+                if (!--pending) resolve(results);
+              });
+            } else {
+              results.push(file);
+              if (!--pending) resolve(results);
+            }
+          });
+        });
+      });
+    });
+  }
+
   private createMD5(filePath: string) {
     return new Promise((res, rej) => {
       const hash = createHash("md5");
@@ -164,6 +191,7 @@ export class Service
   }
   public async initBPUI(serviceName: string, path: string): Promise<void> {
     const bpuiDir = join(path, "./bpui/");
+    const bpAssetsuiDir = join(bpuiDir, "./assets/");
     if (existsSync(bpuiDir)) {
       this.log.info("BPUI Enabled: {dir} ({serviceName})", {
         dir: bpuiDir,
@@ -215,13 +243,14 @@ export class Service
         if (
           request.headers["if-none-match"] === cacheConfig[appName][moduleName]
         ) {
-          return reply.code(304).send("");
+          return reply.code(304).send();
         }
         return reply.status(200).send(createReadStream(bpContentFile));
       };
 
       for (let appName of readdirSync(bpuiDir, { withFileTypes: true })) {
         if (!appName.isDirectory()) continue;
+        if (appName.name === "assets") continue;
         cacheConfig[appName.name] = cacheConfig[appName.name] || {};
         for (let moduleName of readdirSync(join(bpuiDir, appName.name), {
           withFileTypes: true,
@@ -248,6 +277,57 @@ export class Service
                 req as any,
                 reply as any
               )
+          );
+        }
+      }
+
+      if (existsSync(bpAssetsuiDir)) {
+        this.log.info("BPUI Enabled Assets: {dir} ({serviceName})", {
+          dir: bpAssetsuiDir,
+          serviceName,
+        });
+        let cacheAssetsConfig: any = {};
+
+        const requestAssetListener = (
+          assetFile: string,
+          request: FastifyRequestPath<string>,
+          reply: FastifyReply
+        ) => {
+          if (cacheAssetsConfig[assetFile] === undefined)
+            return reply.status(404).send("File not found");
+          const bpContentFile = join(bpAssetsuiDir, `./${assetFile}`);
+          if (!existsSync(bpContentFile))
+            return reply.status(404).send("File not found");
+
+          reply.type(contentType(assetFile) || "application/octet-stream");
+          reply.header("ETag", cacheAssetsConfig[assetFile]);
+          reply.header(
+            "Cache-Control",
+            "max-age=604800, must-revalidate, no-transform, stale-while-revalidate=86400, stale-if-error"
+          );
+          if (
+            request.headers["if-none-match"] === cacheAssetsConfig[assetFile]
+          ) {
+            return reply.code(304).send();
+          }
+          return reply.status(200).send(createReadStream(bpContentFile));
+        };
+
+        let assetFiles = await this.walkFilePath(bpAssetsuiDir);
+        for (let assetFile of assetFiles) {
+          cacheAssetsConfig[assetFile] = this.createMD5(
+            join(bpAssetsuiDir, assetFile)
+          );
+          this.log.info(
+            "BPUI Cache: /bpui/assets/{assetFile} ({serviceName})",
+            {
+              assetFile: assetFile,
+              serviceName,
+            }
+          );
+
+          await this.fastify.get(`/bpui/assets/${assetFile}`, (req, reply) =>
+            requestAssetListener(assetFile, req as any, reply as any)
           );
         }
       }
@@ -351,7 +431,7 @@ export class Service
   ): Promise<void> {
     const self = this;
     this.fastify.post<any, FastifyRequestPathParams>(
-      path,
+      path.endsWith("/") ? path.substring(0, path.length - 1) : path,
       async (request, reply) => {
         let handleResponse = await self.handleRequest(
           path,
@@ -406,7 +486,7 @@ export class Service
   ): Promise<void> {
     const self = this;
     this.fastify.put<any, FastifyRequestPathParams>(
-      path,
+      path.endsWith("/") ? path.substring(0, path.length - 1) : path,
       async (request, reply) => {
         let handleResponse = await self.handleRequest(
           path,
@@ -461,7 +541,7 @@ export class Service
   ): Promise<void> {
     const self = this;
     this.fastify.delete<any, FastifyRequestPathParams>(
-      path,
+      path.endsWith("/") ? path.substring(0, path.length - 1) : path,
       async (request, reply) => {
         let handleResponse = await self.handleRequest(
           path,
@@ -516,7 +596,7 @@ export class Service
   ): Promise<void> {
     const self = this;
     this.fastify.patch<any, FastifyRequestPathParams>(
-      path,
+      path.endsWith("/") ? path.substring(0, path.length - 1) : path,
       async (request, reply) => {
         let handleResponse = await self.handleRequest(
           path,
