@@ -670,6 +670,14 @@ export class Service
     let clients = this.getClientsAvailToMe(token.clients);
     if (Tools.isNullOrUndefined(clients[request.params.clientId]))
       return { success: false, code: 403, message: "Invalid client" };
+      if (permissionRequired === '') {
+        return {
+          success: true,
+          token,
+          clientId: undefined,
+          roles: undefined
+        };
+      }
     if (
       this._userHasPermission(
         clients,
@@ -728,7 +736,6 @@ export class Service
       )
         return true;
     }
-
     return false;
   }
 
