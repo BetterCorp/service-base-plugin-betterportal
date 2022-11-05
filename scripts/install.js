@@ -33,7 +33,7 @@ for (let file of fs.readdirSync(BPSDK_UI_DIR, { withFileTypes: true })) {
   );
 }
 
-const bpBuildCmd = "cd betterportal-ui; npm ci; npm run build; cd ../";
+const bpBuildCmd = "cd betterportal-ui; npm i; npm run build; cd ../";
 packageJSON.scripts = packageJSON.scripts || {};
 packageJSON.scripts.build = "tsc ; " + bpBuildCmd;
 // packageJSON.scripts.dev =
@@ -59,7 +59,7 @@ if (gitignore.indexOf("/betterportal/node_modules") < 0)
 
 fs.writeFileSync(gitIgnoreFile, gitignore.join(os.EOL));
 
-const execResult = child_process.execSync("npm ci", {
+const execResult = child_process.execSync("npm i", {
   encoding: "utf8",
   cwd: uiDir,
 });
