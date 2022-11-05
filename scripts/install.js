@@ -59,4 +59,9 @@ if (gitignore.indexOf("/betterportal/node_modules") < 0)
 
 fs.writeFileSync(gitIgnoreFile, gitignore.join(os.EOL));
 
-child_process.exec('cd "' + uiDir + '"; npm ci');
+const execResult = child_process.execSync("npm ci", {
+  encoding: "utf8",
+  cwd: uiDir,
+});
+
+console.log(execResult);
