@@ -148,6 +148,7 @@ export class Service
   ) {
     super(pluginName, cwd, pluginCwd, log);
     this.fastify = new fastify(this);
+    this.webJwt = new webJwtLocal(this);
   }
   private readonly _service2FAMaxTime = 5 * 60 * 1000;
   private walkFilePath(dir: string): Promise<Array<string>> {
@@ -334,8 +335,7 @@ export class Service
     }
   }
   public override async init(): Promise<void> {
-    this.webJwt = new webJwtLocal(
-      this,
+    this.webJwt.init(
       {
         bearerStr: "BPAuth",
         queryKey: "BPT",
@@ -670,14 +670,14 @@ export class Service
     let clients = this.getClientsAvailToMe(token.clients);
     if (Tools.isNullOrUndefined(clients[request.params.clientId]))
       return { success: false, code: 403, message: "Invalid client" };
-      if (permissionRequired === '') {
-        return {
-          success: true,
-          token,
-          clientId: undefined,
-          roles: undefined
-        };
-      }
+    if (permissionRequired === "") {
+      return {
+        success: true,
+        token,
+        clientId: undefined,
+        roles: undefined,
+      };
+    }
     if (
       this._userHasPermission(
         clients,
