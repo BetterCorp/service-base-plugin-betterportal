@@ -177,7 +177,7 @@ export class Service
     });
   }
 
-  private createMD5(filePath: string) {
+  private async createMD5(filePath: string) {
     return new Promise((res, rej) => {
       const hash = createHash("md5");
 
@@ -257,7 +257,7 @@ export class Service
           withFileTypes: true,
         })) {
           if (!moduleName.isFile()) continue;
-          cacheConfig[appName.name][moduleName.name] = this.createMD5(
+          cacheConfig[appName.name][moduleName.name] = await this.createMD5(
             join(bpuiDir, appName.name, moduleName.name)
           );
           this.log.info(
@@ -316,7 +316,7 @@ export class Service
 
         let assetFiles = await this.walkFilePath(bpAssetsuiDir);
         for (let assetFile of assetFiles) {
-          cacheAssetsConfig[assetFile] = this.createMD5(
+          cacheAssetsConfig[assetFile] = await this.createMD5(
             join(bpAssetsuiDir, assetFile)
           );
           this.log.info(
