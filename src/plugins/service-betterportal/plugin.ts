@@ -160,8 +160,8 @@ export class Service
         var pending = list.length;
         if (!pending) return resolve(results);
         list.forEach((file) => {
-          file = path.resolve(dir, file);
-          stat(file, (err, stat) => {
+          //file = path.resolve(dir, file);
+          stat(path.resolve(dir, file), (err, stat) => {
             if (stat && stat.isDirectory()) {
               self.walkFilePath(file).then((res) => {
                 results = results.concat(res);
@@ -296,7 +296,7 @@ export class Service
         ) => {
           if (cacheAssetsConfig[assetFile] === undefined)
             return reply.status(404).send("File not found");
-          const bpContentFile = join(bpAssetsuiDir, `./${assetFile}`);
+          const bpContentFile = join(bpAssetsuiDir, `.${assetFile}`);
           if (!existsSync(bpContentFile))
             return reply.status(404).send("File not found");
 
