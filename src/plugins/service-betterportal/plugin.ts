@@ -320,14 +320,14 @@ export class Service
             join(bpAssetsuiDir, assetFile)
           );
           this.log.info(
-            "BPUI Cache: /bpui/assets/{assetFile} ({serviceName})",
+            "BPUI Cache: /bpui/assets{assetFile} ({serviceName})",
             {
               assetFile: assetFile,
               serviceName,
             }
           );
 
-          await this.fastify.get(`/bpui/assets/${assetFile}`, (req, reply) =>
+          await this.fastify.get(`/bpui/assets${assetFile}`, (req, reply) =>
             requestAssetListener(assetFile, req as any, reply as any)
           );
         }
