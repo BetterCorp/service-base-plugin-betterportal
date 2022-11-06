@@ -296,7 +296,7 @@ export class Service
         ) => {
           if (cacheAssetsConfig[assetFile] === undefined)
             return reply.status(404).send("File not found");
-          const bpContentFile = join(bpAssetsuiDir, `.${assetFile}`);
+          const bpContentFile = join(bpAssetsuiDir, `./${assetFile}`);
           if (!existsSync(bpContentFile))
             return reply.status(404).send("File not found");
 
@@ -320,14 +320,14 @@ export class Service
             join(bpAssetsuiDir, assetFile)
           );
           this.log.info(
-            "BPUI Cache: /bpui/assets{assetFile} ({serviceName})",
+            "BPUI Cache: /bpui/assets/{assetFile} ({serviceName})",
             {
               assetFile: assetFile,
               serviceName,
             }
           );
 
-          await this.fastify.get(`/bpui/assets${assetFile}`, (req, reply) =>
+          await this.fastify.get(`/bpui/assets/${assetFile}`, (req, reply) =>
             requestAssetListener(assetFile, req as any, reply as any)
           );
         }
