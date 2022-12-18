@@ -28,11 +28,11 @@ export class fastify extends ServicesClient<
   }
   public override readonly _pluginName: string = "service-betterportal";
 
-  public async initBPUI(path: string): Promise<void> {
+  public async initBPUI(path?: string): Promise<void> {
     await this._plugin.callPluginMethod(
       "initBPUI",
       this._serviceName,
-      this._pluginBase
+      path || this._pluginBase
     );
   }
 
