@@ -15,13 +15,15 @@ import type {
   AuthToken,
   User_Client,
   FastifyRequestPath,
-  FastifyRequestPathParams,
+  FastifyNoBodyRequestHandler,
+  FastifyBodyRequestHandler,
 } from "../../index";
 import type { MyPluginConfig } from "./sec.config";
 import path, { join } from "path";
 import { existsSync, createReadStream, readdirSync, readdir, stat } from "fs";
 import { createHash } from "crypto";
 import { contentType } from "mime-types";
+import type { ParamsFromPath } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-fastify/lib";
 
 export interface BSBFastifyCallable extends ServiceCallable {
   initBPUI(serviceName: string, path: string): Promise<void>;
@@ -29,15 +31,7 @@ export interface BSBFastifyCallable extends ServiceCallable {
     serviceName: string,
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyNoBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean,
@@ -48,15 +42,7 @@ export interface BSBFastifyCallable extends ServiceCallable {
     serviceName: string,
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean,
@@ -67,15 +53,7 @@ export interface BSBFastifyCallable extends ServiceCallable {
     serviceName: string,
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean,
@@ -86,15 +64,7 @@ export interface BSBFastifyCallable extends ServiceCallable {
     serviceName: string,
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean,
@@ -105,15 +75,7 @@ export interface BSBFastifyCallable extends ServiceCallable {
     serviceName: string,
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean,
@@ -204,8 +166,8 @@ export class Service
       const requestListener = (
         oappName: string,
         omoduleName: string,
-        request: FastifyRequestPath<string>,
-        reply: FastifyReply
+        reply: FastifyReply,
+        request: FastifyRequestPath<string>
       ) => {
         const appName =
           Tools.cleanString(oappName, 50, CleanStringStrength.exhard, false) ||
@@ -239,7 +201,7 @@ export class Service
         reply.header("ETag", cacheConfig[appName][moduleName]);
         reply.header(
           "Cache-Control",
-          "max-age=604800, must-revalidate, no-transform, stale-while-revalidate=86400, stale-if-error"
+          "max-age=86400, must-revalidate, no-transform, stale-while-revalidate=3600, stale-if-error"
         );
         if (
           request.headers["if-none-match"] === cacheConfig[appName][moduleName]
@@ -271,12 +233,12 @@ export class Service
 
           await this.fastify.get(
             `/bpui/${appName.name}/${moduleName.name}`,
-            (req, reply) =>
-              requestListener(
+            async (reply, params, query, req) =>
+              await requestListener(
                 appName.name,
                 moduleName.name,
-                req as any,
-                reply as any
+                reply,
+                req as FastifyRequestPath<string>
               )
           );
         }
@@ -291,8 +253,8 @@ export class Service
 
         const requestAssetListener = (
           assetFile: string,
-          request: FastifyRequestPath<string>,
-          reply: FastifyReply
+          reply: FastifyReply,
+          request: FastifyRequestPath<string>
         ) => {
           if (cacheAssetsConfig[assetFile] === undefined)
             return reply.status(404).send("File not found");
@@ -327,8 +289,14 @@ export class Service
             }
           );
 
-          await this.fastify.get(`/bpui/assets/${assetFile}`, (req, reply) =>
-            requestAssetListener(assetFile, req as any, reply as any)
+          await this.fastify.get(
+            `/bpui/assets/${assetFile}`,
+            async (reply, params, query, req) =>
+              await requestAssetListener(
+                assetFile,
+                reply,
+                req as FastifyRequestPath<string>
+              )
           );
         }
       }
@@ -360,162 +328,148 @@ export class Service
     serviceName: string,
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyNoBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
     optionalAuth: boolean = false,
     require2FA: boolean = false
   ): Promise<void> {
     const self = this;
-    this.fastify.get<any, FastifyRequestPathParams>(
-      path,
-      async (request, reply) => {
-        let handleResponse = await self.handleRequest(
-          path,
-          serviceName,
-          permissionRequired,
-          require2FA,
-          roles || [],
-          request as any,
-          allowedTokenTypes
-        );
-        if (!handleResponse.success) {
-          if (optionalAuth === true)
-            return await listener(
-              null,
-              null,
-              null,
-              request as any,
-              reply as any
-            );
-          return reply
-            .status(handleResponse.code || 400)
-            .send(handleResponse.message || "Server Error");
-        }
-        return await listener(
-          handleResponse.token!,
-          handleResponse.clientId!,
-          handleResponse.roles!,
-          request as any,
-          reply as any
-        );
+    this.fastify.get(path, async (reply, params, query, request) => {
+      let handleResponse = await self.handleRequest(
+        path,
+        serviceName,
+        permissionRequired,
+        require2FA,
+        roles || [],
+        request as FastifyRequestPath<string>,
+        allowedTokenTypes
+      );
+      if (!handleResponse.success) {
+        if (optionalAuth === true)
+          return await listener(
+            reply,
+            null,
+            null,
+            null,
+            params,
+            query,
+            request
+          );
+        return reply
+          .status(handleResponse.code || 400)
+          .send(handleResponse.message || "Server Error");
       }
-    );
+      return await listener(
+        reply,
+        handleResponse.token!,
+        handleResponse.clientId!,
+        handleResponse.roles!,
+        params,
+        query,
+        request
+      );
+    });
   }
 
   public async post<Path extends string>(
     serviceName: string,
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
     optionalAuth: boolean = false,
     require2FA: boolean = false
   ): Promise<void> {
     const self = this;
-    this.fastify.post<any, FastifyRequestPathParams>(
-      path.endsWith("/") ? path.substring(0, path.length - 1) : path,
-      async (request, reply) => {
-        let handleResponse = await self.handleRequest(
-          path,
-          serviceName,
-          permissionRequired,
-          require2FA,
-          roles || [],
-          request as any,
-          allowedTokenTypes
-        );
-        if (!handleResponse.success) {
-          if (optionalAuth === true)
-            return await listener(
-              null,
-              null,
-              null,
-              request as any,
-              reply as any
-            );
-          return reply
-            .status(handleResponse.code || 400)
-            .send(handleResponse.message || "Server Error");
-        }
-        return await listener(
-          handleResponse.token!,
-          handleResponse.clientId!,
-          handleResponse.roles!,
-          request as any,
-          reply as any
-        );
+    this.fastify.post(path, async (reply, params, query, body, request) => {
+      let handleResponse = await self.handleRequest(
+        path,
+        serviceName,
+        permissionRequired,
+        require2FA,
+        roles || [],
+        request as FastifyRequestPath<string>,
+        allowedTokenTypes
+      );
+      if (!handleResponse.success) {
+        if (optionalAuth === true)
+          return await listener(
+            reply,
+            null,
+            null,
+            null,
+            params,
+            query,
+            body,
+            request
+          );
+        return reply
+          .status(handleResponse.code || 400)
+          .send(handleResponse.message || "Server Error");
       }
-    );
+      return await listener(
+        reply,
+        handleResponse.token!,
+        handleResponse.clientId!,
+        handleResponse.roles!,
+        params as ParamsFromPath<Path>,
+        query,
+        body,
+        request
+      );
+    });
   }
 
   public async put<Path extends string>(
     serviceName: string,
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
     optionalAuth: boolean = false,
     require2FA: boolean = false
   ): Promise<void> {
     const self = this;
-    this.fastify.put<any, FastifyRequestPathParams>(
+    this.fastify.put<any>(
       path.endsWith("/") ? path.substring(0, path.length - 1) : path,
-      async (request, reply) => {
+      async (reply, params, query, body, request) => {
         let handleResponse = await self.handleRequest(
           path,
           serviceName,
           permissionRequired,
           require2FA,
           roles || [],
-          request as any,
+          request as FastifyRequestPath<string>,
           allowedTokenTypes
         );
         if (!handleResponse.success) {
           if (optionalAuth === true)
             return await listener(
+              reply,
               null,
               null,
               null,
-              request as any,
-              reply as any
+              params,
+              query,
+              body,
+              request
             );
           return reply
             .status(handleResponse.code || 400)
             .send(handleResponse.message || "Server Error");
         }
         return await listener(
+          reply,
           handleResponse.token!,
           handleResponse.clientId!,
           handleResponse.roles!,
-          request as any,
-          reply as any
+          params as ParamsFromPath<Path>,
+          query,
+          body,
+          request
         );
       }
     );
@@ -525,52 +479,50 @@ export class Service
     serviceName: string,
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
     optionalAuth: boolean = false,
     require2FA: boolean = false
   ): Promise<void> {
     const self = this;
-    this.fastify.delete<any, FastifyRequestPathParams>(
+    this.fastify.delete<any>(
       path.endsWith("/") ? path.substring(0, path.length - 1) : path,
-      async (request, reply) => {
+      async (reply, params, query, body, request) => {
         let handleResponse = await self.handleRequest(
           path,
           serviceName,
           permissionRequired,
           require2FA,
           roles || [],
-          request as any,
+          request as FastifyRequestPath<string>,
           allowedTokenTypes
         );
         if (!handleResponse.success) {
           if (optionalAuth === true)
             return await listener(
+              reply,
               null,
               null,
               null,
-              request as any,
-              reply as any
+              params,
+              query,
+              body,
+              request
             );
           return reply
             .status(handleResponse.code || 400)
             .send(handleResponse.message || "Server Error");
         }
         return await listener(
+          reply,
           handleResponse.token!,
           handleResponse.clientId!,
           handleResponse.roles!,
-          request as any,
-          reply as any
+          params as ParamsFromPath<Path>,
+          query,
+          body,
+          request
         );
       }
     );
@@ -580,52 +532,50 @@ export class Service
     serviceName: string,
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
     optionalAuth: boolean = false,
     require2FA: boolean = false
   ): Promise<void> {
     const self = this;
-    this.fastify.patch<any, FastifyRequestPathParams>(
-      path.endsWith("/") ? path.substring(0, path.length - 1) : path,
-      async (request, reply) => {
+    this.fastify.patch<Path>(
+      path,
+      async (reply, params, query, body, request) => {
         let handleResponse = await self.handleRequest(
           path,
           serviceName,
           permissionRequired,
           require2FA,
           roles || [],
-          request as any,
+          request as FastifyRequestPath<string>,
           allowedTokenTypes
         );
         if (!handleResponse.success) {
           if (optionalAuth === true)
             return await listener(
+              reply,
               null,
               null,
               null,
-              request as any,
-              reply as any
+              params,
+              query,
+              body,
+              request
             );
           return reply
             .status(handleResponse.code || 400)
             .send(handleResponse.message || "Server Error");
         }
         return await listener(
+          reply,
           handleResponse.token!,
           handleResponse.clientId!,
           handleResponse.roles!,
-          request as any,
-          reply as any
+          params as ParamsFromPath<Path>,
+          query,
+          body,
+          request
         );
       }
     );
@@ -648,7 +598,17 @@ export class Service
     roles?: Array<string>;
   }> {
     let token: AuthToken;
-    this.log.info("[REQUEST] {URL}", { URL: path });
+
+    const host = Tools.cleanString(
+      request.headers.referer || request.headers.origin || "undefined",
+      255,
+      CleanStringStrength.url
+    )
+      .split("//")[1]
+      .split("/")[0]
+      .toLowerCase();
+
+    this.log.info("[REQUEST] ({host}){URL}", { host, URL: path });
     try {
       let tempToken: AuthToken | boolean | null =
         await this.webJwt.verifyWebRequest<AuthToken>(request, tokenType);
@@ -667,6 +627,8 @@ export class Service
       return { success: false, code: 401, message: "Invalid token" };
     if (Tools.isNullOrUndefined(request.params))
       return { success: false, code: 401, message: "Invalid path" };
+    if (token.host !== host)
+      return { success: false, code: 401, message: "Invalid app" };
     let clients = this.getClientsAvailToMe(token.clients);
     if (Tools.isNullOrUndefined(clients[request.params.clientId]))
       return { success: false, code: 403, message: "Invalid client" };

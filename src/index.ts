@@ -1,7 +1,14 @@
 import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
-import { FastifyRequest } from "fastify";
+import { FastifyRequest, FastifyReply, RouteGenericInterface,
+  RawServerDefault,
+  FastifyBaseLogger,
+  FastifySchema,
+  FastifyTypeProviderDefault, } from "fastify";
+  import type {ParamsFromPath} from '@bettercorp/service-base-plugin-web-server/lib/plugins/service-fastify/lib';
+import { IncomingMessage } from "http";
 
 export interface AuthToken {
+  host: string;
   tenantId: string;
   appId?: string;
   authedAppId: string;
@@ -38,20 +45,6 @@ export type ParamsContainVar<
   Force = never
 > = T extends `${infer Pre}/:${ContainVar}/${infer Post}` ? Next : Force;
 
-export type ParamsFromPathItemStringUndefined<T extends string> =
-  T extends `${infer Pre}?` ? Pre : T;
-
-export type ParamsFromPathUntouched<T extends string> = T extends
-  | `${infer Pre}:${infer Param}/${infer Post}`
-  ? Param | ParamsFromPathUntouched<`${Pre}${Post}`>
-  : never;
-
-export type ParamsFromPath<T extends string> = {
-  [Key in ParamsFromPathUntouched<T> as ParamsFromPathItemStringUndefined<Key>]: Key extends `${infer Name}?`
-    ? string | undefined
-    : string;
-};
-
 export interface FastifyRequestPathParams {
   clientId: string;
 }
@@ -70,3 +63,44 @@ export type FastifyRequestPath<
 }>;
 
 export { fastify } from "./clients/service-betterportal/plugin";
+
+export interface FastifyNoBodyRequestHandler<Path extends string> {
+  (
+    reply: FastifyReply,
+    token: AuthToken | null,
+    clientId: string | null,
+    roles: Array<string> | null,
+    params: Readonly<ParamsFromPath<Path>>,
+    query: any,
+    request: FastifyRequest<
+      RouteGenericInterface,
+      RawServerDefault,
+      IncomingMessage,
+      FastifySchema,
+      FastifyTypeProviderDefault,
+      any,
+      FastifyBaseLogger
+    >
+  ): Promise<void>;
+}
+
+export interface FastifyBodyRequestHandler<Path extends string> {
+  (
+    reply: FastifyReply,
+    token: AuthToken | null,
+    clientId: string | null,
+    roles: Array<string> | null,
+    params: Readonly<ParamsFromPath<Path>>,
+    body: any,
+    query: any,
+    request: FastifyRequest<
+      RouteGenericInterface,
+      RawServerDefault,
+      IncomingMessage,
+      FastifySchema,
+      FastifyTypeProviderDefault,
+      any,
+      FastifyBaseLogger
+    >
+  ): Promise<void>;
+}

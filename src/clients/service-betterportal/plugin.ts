@@ -3,12 +3,13 @@ import {
   ServicesBase,
   ServicesClient,
 } from "@bettercorp/service-base";
-import { FastifyReply } from "fastify";
-import { FastifyHeadersWithIP } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-fastify/lib";
 import { MyPluginConfig } from "../../plugins/service-betterportal/sec.config";
-import { BSBFastifyCallable } from "../../plugins/service-betterportal/plugin";
-import { AuthToken, FastifyRequestPath } from "../../index";
-import { EJWTTokenType } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-webjwt/sec.config";
+import type { BSBFastifyCallable } from "../../plugins/service-betterportal/plugin";
+import type {
+  FastifyBodyRequestHandler,
+  FastifyNoBodyRequestHandler,
+} from "../../index";
+import type { EJWTTokenType } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-webjwt/sec.config";
 
 export class fastify extends ServicesClient<
   ServiceCallable,
@@ -27,9 +28,7 @@ export class fastify extends ServicesClient<
   }
   public override readonly _pluginName: string = "service-betterportal";
 
-  public async initBPUI(
-    path: string
-  ): Promise<void> {
+  public async initBPUI(path: string): Promise<void> {
     await this._plugin.callPluginMethod(
       "initBPUI",
       this._serviceName,
@@ -37,23 +36,10 @@ export class fastify extends ServicesClient<
     );
   }
 
-  public async get<
-    Path extends string,
-    Body = any,
-    Querystring = any,
-    Headers = FastifyHeadersWithIP
-  >(
+  public async get<Path extends string>(
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path, Body, Querystring, Headers>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyNoBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean
@@ -63,30 +49,17 @@ export class fastify extends ServicesClient<
       this._serviceName,
       path,
       permissionRequired,
-      listener,
+      listener as FastifyNoBodyRequestHandler<string>,
       roles,
       allowedTokenTypes,
       optionalAuth
     );
   }
 
-  public async post<
-    Path extends string,
-    Body = any,
-    Querystring = any,
-    Headers = FastifyHeadersWithIP
-  >(
+  public async post<Path extends string>(
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path, Body, Querystring, Headers>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean
@@ -96,30 +69,17 @@ export class fastify extends ServicesClient<
       this._serviceName,
       path,
       permissionRequired,
-      listener,
+      listener as FastifyBodyRequestHandler<string>,
       roles,
       allowedTokenTypes,
       optionalAuth
     );
   }
 
-  public async put<
-    Path extends string,
-    Body = any,
-    Querystring = any,
-    Headers = FastifyHeadersWithIP
-  >(
+  public async put<Path extends string>(
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path, Body, Querystring, Headers>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean
@@ -129,30 +89,17 @@ export class fastify extends ServicesClient<
       this._serviceName,
       path,
       permissionRequired,
-      listener,
+      listener as FastifyBodyRequestHandler<string>,
       roles,
       allowedTokenTypes,
       optionalAuth
     );
   }
 
-  public async delete<
-    Path extends string,
-    Body = any,
-    Querystring = any,
-    Headers = FastifyHeadersWithIP
-  >(
+  public async delete<Path extends string>(
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path, Body, Querystring, Headers>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean
@@ -162,30 +109,17 @@ export class fastify extends ServicesClient<
       this._serviceName,
       path,
       permissionRequired,
-      listener,
+      listener as FastifyBodyRequestHandler<string>,
       roles,
       allowedTokenTypes,
       optionalAuth
     );
   }
 
-  public async patch<
-    Path extends string,
-    Body = any,
-    Querystring = any,
-    Headers = FastifyHeadersWithIP
-  >(
+  public async patch<Path extends string>(
     path: Path,
     permissionRequired: string,
-    listener: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        roles: Array<string> | null,
-        request: FastifyRequestPath<Path, Body, Querystring, Headers>,
-        reply: FastifyReply
-      ): Promise<void>;
-    },
+    listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean
@@ -195,7 +129,7 @@ export class fastify extends ServicesClient<
       this._serviceName,
       path,
       permissionRequired,
-      listener,
+      listener as FastifyBodyRequestHandler<string>,
       roles,
       allowedTokenTypes,
       optionalAuth
