@@ -11,12 +11,14 @@ import { EJWTTokenType } from "@bettercorp/service-base-plugin-web-server/lib/pl
 import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
 import { CleanStringStrength, Tools } from "@bettercorp/tools/lib/Tools";
 import { FastifyReply } from "fastify";
-import type {
+import {
   AuthToken,
   User_Client,
   FastifyRequestPath,
   FastifyNoBodyRequestHandler,
   FastifyBodyRequestHandler,
+  ReplyRequestCacheConfig,
+  ReplyRequestCacheConfigAbility,
 } from "../../index";
 import type { MyPluginConfig } from "./sec.config";
 import path, { join } from "path";
@@ -139,6 +141,35 @@ export class Service
     });
   }
 
+  private canSendNewDocumentCache(
+    request: FastifyRequestPath<string>,
+    reply: FastifyReply,
+    etag: string,
+    config: ReplyRequestCacheConfig
+  ): boolean {
+    reply.header("ETag", etag);
+    if (reply.hasHeader("Cache-Control")) reply.removeHeader("Cache-Control");
+
+    let headerToAdd: Array<string> = [
+      "no-transform",
+      "must-revalidate",
+      config.cacheAbility,
+    ];
+    if (config.immutable === true) headerToAdd.push("immutable");
+    if (config.maxAge !== undefined && config.maxAge >= 0)
+      headerToAdd.push(`max-age=${config.maxAge}`);
+    if (
+      config.revalidationSeconds !== undefined &&
+      config.revalidationSeconds >= 0
+    )
+      headerToAdd.push(`stale-while-revalidate=${config.revalidationSeconds}`);
+    reply.header("Cache-Control", headerToAdd.join(","));
+    if (request.headers["if-none-match"] === etag) {
+      reply.code(304).send();
+      return false;
+    }
+    return true;
+  }
   private async createMD5(filePath: string) {
     return new Promise((res, rej) => {
       const hash = createHash("md5");
@@ -198,17 +229,20 @@ export class Service
         else if (moduleName.endsWith(".css")) reply.type("text/css");
         else return reply.status(404).send("File type not found");
 
-        reply.header("ETag", cacheConfig[appName][moduleName]);
-        reply.header(
-          "Cache-Control",
-          "max-age=86400, must-revalidate, no-transform, stale-while-revalidate=3600, stale-if-error"
-        );
         if (
-          request.headers["if-none-match"] === cacheConfig[appName][moduleName]
-        ) {
-          return reply.code(304).send();
-        }
-        return reply.status(200).send(createReadStream(bpContentFile));
+          this.canSendNewDocumentCache(
+            request,
+            reply,
+            cacheConfig[appName][moduleName],
+            {
+              cacheAbility: ReplyRequestCacheConfigAbility.all,
+              maxAge: 60 * 60 * 24,
+              revalidationSeconds: 60 * 60,
+            }
+          )
+        )
+          return reply.status(200).send(createReadStream(bpContentFile));
+        return;
       };
 
       for (let appName of readdirSync(bpuiDir, { withFileTypes: true })) {
@@ -262,18 +296,22 @@ export class Service
           if (!existsSync(bpContentFile))
             return reply.status(404).send("File not found");
 
-          reply.type(contentType(assetFile) || "application/octet-stream");
-          reply.header("ETag", cacheAssetsConfig[assetFile]);
-          reply.header(
-            "Cache-Control",
-            "max-age=604800, must-revalidate, no-transform, stale-while-revalidate=86400, stale-if-error"
-          );
           if (
-            request.headers["if-none-match"] === cacheAssetsConfig[assetFile]
+            this.canSendNewDocumentCache(
+              request,
+              reply,
+              cacheAssetsConfig[assetFile],
+              {
+                cacheAbility: ReplyRequestCacheConfigAbility.all,
+                maxAge: 60 * 60 * 24,
+                revalidationSeconds: 60 * 60,
+              }
+            )
           ) {
-            return reply.code(304).send();
+            reply.type(contentType(assetFile) || "application/octet-stream");
+            return reply.status(200).send(createReadStream(bpContentFile));
           }
-          return reply.status(200).send(createReadStream(bpContentFile));
+          return;
         };
 
         let assetFiles = await this.walkFilePath(bpAssetsuiDir);
@@ -343,6 +381,7 @@ export class Service
         require2FA,
         roles || [],
         request as FastifyRequestPath<string>,
+        reply,
         allowedTokenTypes
       );
       if (!handleResponse.success) {
@@ -354,6 +393,13 @@ export class Service
             null,
             params,
             query,
+            (eTag: string, config: ReplyRequestCacheConfig) =>
+              self.canSendNewDocumentCache(
+                request as FastifyRequestPath<string>,
+                reply,
+                eTag,
+                config
+              ),
             request
           );
         return reply
@@ -367,6 +413,13 @@ export class Service
         handleResponse.roles!,
         params,
         query,
+        (eTag: string, config: ReplyRequestCacheConfig) =>
+          self.canSendNewDocumentCache(
+            request as FastifyRequestPath<string>,
+            reply,
+            eTag,
+            config
+          ),
         request
       );
     });
@@ -391,6 +444,7 @@ export class Service
         require2FA,
         roles || [],
         request as FastifyRequestPath<string>,
+        reply,
         allowedTokenTypes
       );
       if (!handleResponse.success) {
@@ -401,8 +455,15 @@ export class Service
             null,
             null,
             params,
-            query,
             body,
+            query,
+            (eTag: string, config: ReplyRequestCacheConfig) =>
+              self.canSendNewDocumentCache(
+                request as FastifyRequestPath<string>,
+                reply,
+                eTag,
+                config
+              ),
             request
           );
         return reply
@@ -415,8 +476,15 @@ export class Service
         handleResponse.clientId!,
         handleResponse.roles!,
         params as ParamsFromPath<Path>,
-        query,
         body,
+        query,
+        (eTag: string, config: ReplyRequestCacheConfig) =>
+          self.canSendNewDocumentCache(
+            request as FastifyRequestPath<string>,
+            reply,
+            eTag,
+            config
+          ),
         request
       );
     });
@@ -443,6 +511,7 @@ export class Service
           require2FA,
           roles || [],
           request as FastifyRequestPath<string>,
+          reply,
           allowedTokenTypes
         );
         if (!handleResponse.success) {
@@ -453,8 +522,15 @@ export class Service
               null,
               null,
               params,
-              query,
               body,
+              query,
+              (eTag: string, config: ReplyRequestCacheConfig) =>
+                self.canSendNewDocumentCache(
+                  request as FastifyRequestPath<string>,
+                  reply,
+                  eTag,
+                  config
+                ),
               request
             );
           return reply
@@ -467,8 +543,15 @@ export class Service
           handleResponse.clientId!,
           handleResponse.roles!,
           params as ParamsFromPath<Path>,
-          query,
           body,
+          query,
+          (eTag: string, config: ReplyRequestCacheConfig) =>
+            self.canSendNewDocumentCache(
+              request as FastifyRequestPath<string>,
+              reply,
+              eTag,
+              config
+            ),
           request
         );
       }
@@ -496,6 +579,7 @@ export class Service
           require2FA,
           roles || [],
           request as FastifyRequestPath<string>,
+          reply,
           allowedTokenTypes
         );
         if (!handleResponse.success) {
@@ -506,8 +590,15 @@ export class Service
               null,
               null,
               params,
-              query,
               body,
+              query,
+              (eTag: string, config: ReplyRequestCacheConfig) =>
+                self.canSendNewDocumentCache(
+                  request as FastifyRequestPath<string>,
+                  reply,
+                  eTag,
+                  config
+                ),
               request
             );
           return reply
@@ -520,8 +611,15 @@ export class Service
           handleResponse.clientId!,
           handleResponse.roles!,
           params as ParamsFromPath<Path>,
-          query,
           body,
+          query,
+          (eTag: string, config: ReplyRequestCacheConfig) =>
+            self.canSendNewDocumentCache(
+              request as FastifyRequestPath<string>,
+              reply,
+              eTag,
+              config
+            ),
           request
         );
       }
@@ -549,6 +647,7 @@ export class Service
           require2FA,
           roles || [],
           request as FastifyRequestPath<string>,
+          reply,
           allowedTokenTypes
         );
         if (!handleResponse.success) {
@@ -559,8 +658,15 @@ export class Service
               null,
               null,
               params,
-              query,
               body,
+              query,
+              (eTag: string, config: ReplyRequestCacheConfig) =>
+                self.canSendNewDocumentCache(
+                  request as FastifyRequestPath<string>,
+                  reply,
+                  eTag,
+                  config
+                ),
               request
             );
           return reply
@@ -573,8 +679,15 @@ export class Service
           handleResponse.clientId!,
           handleResponse.roles!,
           params as ParamsFromPath<Path>,
-          query,
           body,
+          query,
+          (eTag: string, config: ReplyRequestCacheConfig) =>
+            self.canSendNewDocumentCache(
+              request as FastifyRequestPath<string>,
+              reply,
+              eTag,
+              config
+            ),
           request
         );
       }
@@ -588,6 +701,7 @@ export class Service
     require2FA: boolean,
     roles: Array<string>,
     request: FastifyRequestPath<"/:clientId/">,
+    reply: FastifyReply,
     tokenType?: EJWTTokenType
   ): Promise<{
     success: boolean;
@@ -609,6 +723,10 @@ export class Service
       .toLowerCase();
 
     this.log.info("[REQUEST] ({host}){URL}", { host, URL: path });
+    reply.header(
+      "Cache-Control",
+      "no-store, no-cache, max-age=0, must-revalidate"
+    );
     try {
       let tempToken: AuthToken | boolean | null =
         await this.webJwt.verifyWebRequest<AuthToken>(request, tokenType);

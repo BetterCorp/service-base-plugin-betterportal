@@ -1,10 +1,14 @@
 import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
-import { FastifyRequest, FastifyReply, RouteGenericInterface,
+import {
+  FastifyRequest,
+  FastifyReply,
+  RouteGenericInterface,
   RawServerDefault,
   FastifyBaseLogger,
   FastifySchema,
-  FastifyTypeProviderDefault, } from "fastify";
-  import type {ParamsFromPath} from '@bettercorp/service-base-plugin-web-server/lib/plugins/service-fastify/lib';
+  FastifyTypeProviderDefault,
+} from "fastify";
+import type { ParamsFromPath } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-fastify/lib";
 import { IncomingMessage } from "http";
 
 export interface AuthToken {
@@ -56,7 +60,9 @@ export type FastifyRequestPath<
   Headers = any,
   OverrideParams = never
 > = FastifyRequest<{
-  Params: Readonly<ParamsContainVar<Path, "clientId", ParamsFromPath<Path>> | OverrideParams>;
+  Params: Readonly<
+    ParamsContainVar<Path, "clientId", ParamsFromPath<Path>> | OverrideParams
+  >;
   Querystring: Readonly<Query>;
   Body: Readonly<Body>;
   headers: Readonly<Headers>;
@@ -72,6 +78,9 @@ export interface FastifyNoBodyRequestHandler<Path extends string> {
     roles: Array<string> | null,
     params: Readonly<ParamsFromPath<Path>>,
     query: any,
+    checkCacheCanSendData: {
+      (eTag: string, config: ReplyRequestCacheConfig): boolean;
+    },
     request: FastifyRequest<
       RouteGenericInterface,
       RawServerDefault,
@@ -93,6 +102,9 @@ export interface FastifyBodyRequestHandler<Path extends string> {
     params: Readonly<ParamsFromPath<Path>>,
     body: any,
     query: any,
+    checkCacheCanSendData: {
+      (eTag: string, config: ReplyRequestCacheConfig): boolean;
+    },
     request: FastifyRequest<
       RouteGenericInterface,
       RawServerDefault,
@@ -103,4 +115,16 @@ export interface FastifyBodyRequestHandler<Path extends string> {
       FastifyBaseLogger
     >
   ): Promise<void>;
+}
+
+export enum ReplyRequestCacheConfigAbility {
+  all = "public",
+  singleUser = "private",
+}
+export interface ReplyRequestCacheConfig {
+  cacheAbility: ReplyRequestCacheConfigAbility;
+  immutable?: boolean;
+  //canCacheWhileErrorSeconds?: number;
+  revalidationSeconds?: number;
+  maxAge?: number;
 }
