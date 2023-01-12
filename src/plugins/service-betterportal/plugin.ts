@@ -164,6 +164,7 @@ export class Service
     )
       headerToAdd.push(`stale-while-revalidate=${config.revalidationSeconds}`);
     reply.header("Cache-Control", headerToAdd.join(","));
+    if (process.env.NODE_ENV !== 'production') return true;
     if (request.headers["if-none-match"] === etag) {
       reply.code(304).send();
       return false;
@@ -186,6 +187,7 @@ export class Service
   public async initBPUI(serviceName: string, path: string): Promise<void> {
     const bpuiDir = join(path, "./bpui/");
     const bpAssetsuiDir = join(bpuiDir, "./assets/");
+    const bpLibuiDir = join(bpuiDir, "./lib/");
     if (existsSync(bpuiDir)) {
       this.log.info("BPUI Enabled: {dir} ({serviceName})", {
         dir: bpuiDir,
@@ -200,40 +202,30 @@ export class Service
         reply: FastifyReply,
         request: FastifyRequestPath<string>
       ) => {
-        const appName =
-          Tools.cleanString(oappName, 50, CleanStringStrength.exhard, false) ||
-          "_";
-        const moduleName =
-          Tools.cleanString(
-            omoduleName,
-            255,
-            CleanStringStrength.hard,
-            false
-          ) || "_._";
-        if (cacheConfig[appName] === undefined)
+        if (cacheConfig[oappName] === undefined)
           return reply.status(404).send("File not found");
         if (
-          [".js", ".css", ".vue"].filter((x) => moduleName.indexOf(x) > 0)
+          [".js", ".css", ".vue"].filter((x) => omoduleName.indexOf(x) > 0)
             .length === 0
         )
           return reply.status(404).send("File not found");
-        if (cacheConfig[appName][moduleName] === undefined)
+        if (cacheConfig[oappName][omoduleName] === undefined)
           return reply.status(404).send("File not found");
-        const bpContentFile = join(bpuiDir, `./${appName}/${moduleName}`);
+        const bpContentFile = join(bpuiDir, `./${oappName}/${omoduleName}`);
         if (!existsSync(bpContentFile))
           return reply.status(404).send("File not found");
 
-        if (moduleName.endsWith(".js")) reply.type("application/javascript");
-        else if (moduleName.endsWith(".vue"))
+        if (omoduleName.endsWith(".js")) reply.type("application/javascript");
+        else if (omoduleName.endsWith(".vue"))
           reply.type("application/javascript");
-        else if (moduleName.endsWith(".css")) reply.type("text/css");
+        else if (omoduleName.endsWith(".css")) reply.type("text/css");
         else return reply.status(404).send("File type not found");
 
         if (
           this.canSendNewDocumentCache(
             request,
             reply,
-            cacheConfig[appName][moduleName],
+            cacheConfig[oappName][omoduleName],
             {
               cacheAbility: ReplyRequestCacheConfigAbility.all,
               maxAge: 60 * 60 * 24,
@@ -248,6 +240,7 @@ export class Service
       for (let appName of readdirSync(bpuiDir, { withFileTypes: true })) {
         if (!appName.isDirectory()) continue;
         if (appName.name === "assets") continue;
+        if (appName.name === "lib") continue;
         cacheConfig[appName.name] = cacheConfig[appName.name] || {};
         for (let moduleName of readdirSync(join(bpuiDir, appName.name), {
           withFileTypes: true,
@@ -276,6 +269,62 @@ export class Service
               )
           );
         }
+      }
+
+      let libCacheConfig: any  ={};
+      const libRequestListener = (
+        libName: string,
+        reply: FastifyReply,
+        request: FastifyRequestPath<string>
+      ) => {
+        if (libCacheConfig[libName] === undefined)
+          return reply.status(404).send("File not found");
+        if (libCacheConfig[libName] === undefined)
+          return reply.status(404).send("File not found");
+        const bpContentFile = join(bpLibuiDir, `./${libName}.js`);
+        if (!existsSync(bpContentFile))
+          return reply.status(404).send("File not found");
+
+        reply.type("application/javascript");
+        
+        if (
+          this.canSendNewDocumentCache(
+            request,
+            reply,
+            libCacheConfig[libName],
+            {
+              cacheAbility: ReplyRequestCacheConfigAbility.all,
+              maxAge: 60 * 60 * 24,
+              revalidationSeconds: 60 * 60,
+            }
+          )
+        )
+          return reply.status(200).send(createReadStream(bpContentFile));
+        return;
+      };
+
+      for (let libName of readdirSync(bpLibuiDir, { withFileTypes: true })) {
+        if (!libName.isFile()) continue;
+        libCacheConfig[libName.name] = await this.createMD5(
+          join(bpLibuiDir, libName.name)
+        );
+        this.log.info(
+          "BPUI Cache: /bpui/lib/{libName}({serviceName})",
+          {
+            libName: libName.name,
+            serviceName,
+          }
+        );
+
+        await this.fastify.get(
+          `/bpui/lib/${libName.name.split('.')[0]}(\.js||)`,
+          async (reply, params, query, req) =>
+            await libRequestListener(
+              libName.name,
+              reply,
+              req as FastifyRequestPath<string>
+            )
+        );
       }
 
       if (existsSync(bpAssetsuiDir)) {
