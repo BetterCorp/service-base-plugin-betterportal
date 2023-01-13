@@ -315,7 +315,7 @@ export class Service
           });
 
           await this.fastify.get(
-            `/bpui/lib/${libName.name.split(".")[0]}(\.js||)`,
+            `/bpui/lib/${libName.name.split(".")[0]}`,
             async (reply, params, query, req) =>
               await libRequestListener(
                 libName.name,
