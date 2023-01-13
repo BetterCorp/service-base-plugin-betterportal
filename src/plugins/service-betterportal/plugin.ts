@@ -164,7 +164,7 @@ export class Service
     )
       headerToAdd.push(`stale-while-revalidate=${config.revalidationSeconds}`);
     reply.header("Cache-Control", headerToAdd.join(","));
-    if (process.env.NODE_ENV !== 'production') return true;
+    if (process.env.NODE_ENV !== "production") return true;
     if (request.headers["if-none-match"] === etag) {
       reply.code(304).send();
       return false;
@@ -271,60 +271,59 @@ export class Service
         }
       }
 
-      let libCacheConfig: any  ={};
-      const libRequestListener = (
-        libName: string,
-        reply: FastifyReply,
-        request: FastifyRequestPath<string>
-      ) => {
-        if (libCacheConfig[libName] === undefined)
-          return reply.status(404).send("File not found");
-        if (libCacheConfig[libName] === undefined)
-          return reply.status(404).send("File not found");
-        const bpContentFile = join(bpLibuiDir, `./${libName}.js`);
-        if (!existsSync(bpContentFile))
-          return reply.status(404).send("File not found");
+      if (existsSync(bpLibuiDir)) {
+        let libCacheConfig: any = {};
+        const libRequestListener = (
+          libName: string,
+          reply: FastifyReply,
+          request: FastifyRequestPath<string>
+        ) => {
+          if (libCacheConfig[libName] === undefined)
+            return reply.status(404).send("File not found");
+          if (libCacheConfig[libName] === undefined)
+            return reply.status(404).send("File not found");
+          const bpContentFile = join(bpLibuiDir, `./${libName}.js`);
+          if (!existsSync(bpContentFile))
+            return reply.status(404).send("File not found");
 
-        reply.type("application/javascript");
-        
-        if (
-          this.canSendNewDocumentCache(
-            request,
-            reply,
-            libCacheConfig[libName],
-            {
-              cacheAbility: ReplyRequestCacheConfigAbility.all,
-              maxAge: 60 * 60 * 24,
-              revalidationSeconds: 60 * 60,
-            }
+          reply.type("application/javascript");
+
+          if (
+            this.canSendNewDocumentCache(
+              request,
+              reply,
+              libCacheConfig[libName],
+              {
+                cacheAbility: ReplyRequestCacheConfigAbility.all,
+                maxAge: 60 * 60 * 24,
+                revalidationSeconds: 60 * 60,
+              }
+            )
           )
-        )
-          return reply.status(200).send(createReadStream(bpContentFile));
-        return;
-      };
+            return reply.status(200).send(createReadStream(bpContentFile));
+          return;
+        };
 
-      for (let libName of readdirSync(bpLibuiDir, { withFileTypes: true })) {
-        if (!libName.isFile()) continue;
-        libCacheConfig[libName.name] = await this.createMD5(
-          join(bpLibuiDir, libName.name)
-        );
-        this.log.info(
-          "BPUI Cache: /bpui/lib/{libName}({serviceName})",
-          {
+        for (let libName of readdirSync(bpLibuiDir, { withFileTypes: true })) {
+          if (!libName.isFile()) continue;
+          libCacheConfig[libName.name] = await this.createMD5(
+            join(bpLibuiDir, libName.name)
+          );
+          this.log.info("BPUI Cache: /bpui/lib/{libName}({serviceName})", {
             libName: libName.name,
             serviceName,
-          }
-        );
+          });
 
-        await this.fastify.get(
-          `/bpui/lib/${libName.name.split('.')[0]}(\.js||)`,
-          async (reply, params, query, req) =>
-            await libRequestListener(
-              libName.name,
-              reply,
-              req as FastifyRequestPath<string>
-            )
-        );
+          await this.fastify.get(
+            `/bpui/lib/${libName.name.split(".")[0]}(\.js||)`,
+            async (reply, params, query, req) =>
+              await libRequestListener(
+                libName.name,
+                reply,
+                req as FastifyRequestPath<string>
+              )
+          );
+        }
       }
 
       if (existsSync(bpAssetsuiDir)) {
