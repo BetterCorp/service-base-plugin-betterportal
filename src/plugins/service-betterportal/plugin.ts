@@ -282,7 +282,7 @@ export class Service
             return reply.status(404).send("File not found");
           if (libCacheConfig[libName] === undefined)
             return reply.status(404).send("File not found");
-          const bpContentFile = join(bpLibuiDir, `./${libName}.js`);
+          const bpContentFile = join(bpLibuiDir, `./${libName}`);
           if (!existsSync(bpContentFile))
             return reply.status(404).send("File not found");
 
