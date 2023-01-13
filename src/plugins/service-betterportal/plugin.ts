@@ -393,7 +393,7 @@ export class Service
     }
   }
   public override async init(): Promise<void> {
-    this.canCache = await (await this.getPluginConfig()).canCache
+    this.canCache = await (await this.getPluginConfig()).canCache;
     this.webJwt.init(
       {
         bearerStr: "BPAuth",
@@ -766,14 +766,22 @@ export class Service
   }> {
     let token: AuthToken;
 
-    const host = Tools.cleanString(
+    let host = Tools.cleanString(
       request.headers.referer || request.headers.origin || "undefined",
       255,
       CleanStringStrength.url
-    )
-      .split("//")[1]
-      .split("/")[0]
-      .toLowerCase();
+    );
+    if (host.indexOf("//") < 0) {
+      this.log.warn("A client requested from ({host}) is invalid //", { host });
+      return { success: false, code: 400, message: "Invalid request" };
+    }
+    host = host.split("//")[1];
+    if (host.indexOf("/") < 0) {
+      this.log.warn("A client requested from ({host}) is invalid /", { host });
+      return { success: false, code: 400, message: "Invalid request" };
+    }
+    host = host.split("/")[0];
+    host = host.toLowerCase();
 
     this.log.info("[REQUEST] ({host}){URL}", { host, URL: path });
     reply.header(
