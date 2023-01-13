@@ -104,6 +104,7 @@ export class Service
 
   private fastify: fastify;
   private webJwt!: webJwtLocal;
+  private canCache: boolean = true;
   constructor(
     pluginName: string,
     cwd: string,
@@ -147,6 +148,9 @@ export class Service
     etag: string,
     config: ReplyRequestCacheConfig
   ): boolean {
+    if (!this.canCache) {
+      return true;
+    }
     reply.header("ETag", etag);
     if (reply.hasHeader("Cache-Control")) reply.removeHeader("Cache-Control");
 
@@ -389,6 +393,7 @@ export class Service
     }
   }
   public override async init(): Promise<void> {
+    this.canCache = await (await this.getPluginConfig()).canCache
     this.webJwt.init(
       {
         bearerStr: "BPAuth",
