@@ -68,7 +68,7 @@ export type FastifyRequestPath<
   headers: Readonly<Headers>;
 }>;
 
-export { fastify } from "./clients/service-betterportal/plugin";
+export { betterPortal } from "./clients/service-betterportal/plugin";
 
 export interface FastifyNoBodyRequestHandler<Path extends string> {
   (

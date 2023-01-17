@@ -4,15 +4,18 @@ import {
   ServicesClient,
 } from "@bettercorp/service-base";
 import { MyPluginConfig } from "../../plugins/service-betterportal/sec.config";
-import type { BSBFastifyCallable } from "../../plugins/service-betterportal/plugin";
+import type {
+  BSBFastifyCallable,
+  BetterPortalEvents,
+} from "../../plugins/service-betterportal/plugin";
 import type {
   FastifyBodyRequestHandler,
   FastifyNoBodyRequestHandler,
 } from "../../index";
 import type { EJWTTokenType } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-webjwt/sec.config";
 
-export class fastify extends ServicesClient<
-  ServiceCallable,
+export class betterPortal extends ServicesClient<
+  BetterPortalEvents,
   ServiceCallable,
   ServiceCallable,
   ServiceCallable,
@@ -134,5 +137,33 @@ export class fastify extends ServicesClient<
       allowedTokenTypes,
       optionalAuth
     );
+  }
+
+  public async emitEvent<T = any>(
+    category: string,
+    action: string,
+    data: T
+  ): Promise<void> {
+    await this._plugin.emitEvent(
+      "onEvent",
+      this._plugin.pluginName,
+      category,
+      action,
+      data
+    );
+  }
+
+  public async _onBPEvent(listener: {
+    (
+      plugin: string,
+      category: string,
+      action: string,
+      data: any
+    ): Promise<void>;
+  }): Promise<void> {
+    if (this._plugin.pluginName !== "service-betterportal-events")
+      throw "cannot listen to events from any other service but the core portal service";
+    // this is a forced listener
+    await this._plugin.onEvent("onEvent", listener as any as never);
   }
 }

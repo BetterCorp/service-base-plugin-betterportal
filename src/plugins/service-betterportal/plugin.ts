@@ -27,6 +27,9 @@ import { createHash } from "crypto";
 import { contentType } from "mime-types";
 import type { ParamsFromPath } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-fastify/lib";
 
+export interface BetterPortalEvents extends ServiceCallable {
+  onEvent(plugin: string, category: string, action: string, meta: any): Promise<void>;
+}
 export interface BSBFastifyCallable extends ServiceCallable {
   initBPUI(serviceName: string, path: string): Promise<void>;
   get<Path extends string>(
@@ -87,7 +90,7 @@ export interface BSBFastifyCallable extends ServiceCallable {
 
 export class Service
   extends ServicesBase<
-    ServiceCallable,
+    BetterPortalEvents,
     ServiceCallable,
     ServiceCallable,
     ServiceCallable,
