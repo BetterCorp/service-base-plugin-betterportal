@@ -6,6 +6,7 @@ import {
 import { MyPluginConfig } from "../../plugins/service-betterportal/sec.config";
 import type {
   BSBFastifyCallable,
+  BetterPortalBasicEvents,
   BetterPortalEvents,
 } from "../../plugins/service-betterportal/plugin";
 import type {
@@ -139,26 +140,26 @@ export class betterPortal extends ServicesClient<
     );
   }
 
-  public async emitEvent<T = any>(
-    category: string,
-    action: string,
-    data: T
+  public async emitEvent<T extends BetterPortalBasicEvents = any>(
+    tenantId: string, category: string, action: string, meta: T
   ): Promise<void> {
     await this._plugin.emitEvent(
       "onEvent",
       this._plugin.pluginName,
+      tenantId,
       category,
       action,
-      data
+      meta
     );
   }
 
   public async _onBPEvent(listener: {
     (
       plugin: string,
+      tenantId: string,
       category: string,
       action: string,
-      data: any
+      meta: BetterPortalBasicEvents
     ): Promise<void>;
   }): Promise<void> {
     if (this._plugin.pluginName !== "service-betterportal-events")
