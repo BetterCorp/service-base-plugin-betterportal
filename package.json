@@ -15,7 +15,7 @@
     "betterportal-ui/**/*"
   ],
   "main": "lib/index.js",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "bsb_project": true,
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.1",
