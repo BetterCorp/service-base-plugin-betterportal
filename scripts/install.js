@@ -8,7 +8,7 @@ const child_process = require("child_process");
 const cwd = process.env.INIT_CWD || process.cwd();
 const BPSDK_UI_DIR = path.join(
   cwd,
-  "./node_modules/@bettercorp/service-base-plugin-betterportal/ui"
+  "./node_modules/@bettercorp/service-base-plugin-betterportal/betterportal-ui"
 );
 
 const packageJsonFile = path.join(cwd, "./package.json");
@@ -54,8 +54,10 @@ const gitIgnoreFile = path.join(cwd, ".gitignore");
 let gitignore = fs.readFileSync(gitIgnoreFile).toString().split(os.EOL);
 if (gitignore.indexOf("/lib") < 0) gitignore.push("/lib");
 if (gitignore.indexOf("/bpui") < 0) gitignore.push("/bpui");
-if (gitignore.indexOf("/betterportal/node_modules") < 0)
-  gitignore.push("/betterportal/node_modules");
+if (gitignore.indexOf("/betterportal-ui/dist") < 0) gitignore.push("/betterportal-ui/dist");
+if (gitignore.indexOf("/betterportal-ui/lib") < 0) gitignore.push("/betterportal-ui/lib");
+if (gitignore.indexOf("/betterportal-ui/node_modules") < 0)
+  gitignore.push("/betterportal-ui/node_modules");
 
 fs.writeFileSync(gitIgnoreFile, gitignore.join(os.EOL));
 

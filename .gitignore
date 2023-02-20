@@ -5,3 +5,6 @@ node_modules
 /node_modules
 /junit.xml
 /test-file-*
+/betterportal-ui/dist
+/betterportal-ui/lib
+/betterportal-ui/node_modules

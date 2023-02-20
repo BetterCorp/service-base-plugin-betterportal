@@ -1,0 +1,29 @@
+{
+  "type": "module",
+  "compilerOptions": {
+
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "outDir": "lib",
+    "lib": ["es5", "es2015.promise", "dom", "es2015"],
+    "target": "es5",
+    "typeRoots": [
+      "node_modules/@types"
+    ],
+    "module": "es2015",
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": false,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "compileOnSave": true,
+  "include": [
+    "src/lib/*"
+  ],
+  "exclude": [
+    "node_modules/**"
+  ]
+}
