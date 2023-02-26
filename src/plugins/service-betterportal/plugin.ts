@@ -28,11 +28,17 @@ import { contentType } from "mime-types";
 import type { ParamsFromPath } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-fastify/lib";
 
 export interface BetterPortalBasicEvents {
-  appId?: string,
-  userId?: string,
+  appId?: string;
+  userId?: string;
 }
 export interface BetterPortalEvents extends ServiceCallable {
-  onEvent(plugin: string, tenantId: string, category: string, action: string, meta: BetterPortalBasicEvents): Promise<void>;
+  onEvent(
+    plugin: string,
+    tenantId: string,
+    category: string,
+    action: string,
+    meta: BetterPortalBasicEvents
+  ): Promise<void>;
 }
 export interface BSBFastifyCallable extends ServiceCallable {
   initBPUI(serviceName: string, path: string): Promise<void>;
@@ -123,7 +129,10 @@ export class Service
     this.webJwt = new webJwtLocal(this);
   }
   private readonly _service2FAMaxTime = 5 * 60 * 1000;
-  private walkFilePath(dir: string, passingBase: Array<string> = []): Promise<Array<string>> {
+  private walkFilePath(
+    dir: string,
+    passingBase: Array<string> = []
+  ): Promise<Array<string>> {
     const self = this;
     return new Promise((resolve, reject) => {
       let results: Array<any> = [];
@@ -136,8 +145,10 @@ export class Service
           stat(path.resolve(dir, file), (err, stat) => {
             if (stat && stat.isDirectory()) {
               const passthrouBase = [file].concat(passingBase);
-              self.walkFilePath(file, passthrouBase).then((res) => {
-                results = results.concat(res.map(x=>passthrouBase.join("/")+"/"+x));
+              self.walkFilePath(join(dir, file), passthrouBase).then((res) => {
+                results = results.concat(
+                  res.map((x) => (passthrouBase.concat([x])).join("/"))
+                );
                 if (!--pending) resolve(results);
               });
             } else {
