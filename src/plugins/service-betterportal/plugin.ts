@@ -123,7 +123,7 @@ export class Service
     this.webJwt = new webJwtLocal(this);
   }
   private readonly _service2FAMaxTime = 5 * 60 * 1000;
-  private walkFilePath(dir: string): Promise<Array<string>> {
+  private walkFilePath(dir: string, passingBase: Array<string> = []): Promise<Array<string>> {
     const self = this;
     return new Promise((resolve, reject) => {
       let results: Array<any> = [];
@@ -135,8 +135,9 @@ export class Service
           //file = path.resolve(dir, file);
           stat(path.resolve(dir, file), (err, stat) => {
             if (stat && stat.isDirectory()) {
-              self.walkFilePath(file).then((res) => {
-                results = results.concat(res);
+              const passthrouBase = [file].concat(passingBase);
+              self.walkFilePath(file, passthrouBase).then((res) => {
+                results = results.concat(res.map(x=>passthrouBase.join("/")+"/"+x));
                 if (!--pending) resolve(results);
               });
             } else {
