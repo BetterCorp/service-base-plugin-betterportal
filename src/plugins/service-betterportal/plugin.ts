@@ -329,6 +329,7 @@ export class Service
 
         for (let libName of readdirSync(bpLibuiDir, { withFileTypes: true })) {
           if (!libName.isFile()) continue;
+          if (!libName.name.endsWith(".js")) continue;
           libCacheConfig[libName.name] = await this.createMD5(
             join(bpLibuiDir, libName.name)
           );
