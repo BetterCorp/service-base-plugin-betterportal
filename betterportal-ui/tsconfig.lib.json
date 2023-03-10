@@ -1,7 +1,6 @@
 {
   "type": "module",
   "compilerOptions": {
-
     "skipLibCheck": true,
     "baseUrl": ".",
     "outDir": "lib",

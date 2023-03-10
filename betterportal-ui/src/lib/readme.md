@@ -1,5 +1,5 @@
 Add lib files here (.ts files).  
 
-Do not nest folders.  
+Nested folders are suppoted if you need to structure your dirs.  
 
-Libs must be referenced with @/lib/```{libname}```.ts  
+Libs must be referenced with `@/lib/`

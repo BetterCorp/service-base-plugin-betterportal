@@ -6,7 +6,11 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "$/*": ["./src/*"],
+      "@/views/*": ["./src/views/*"],
+      "@/assets/*": ["./src/assets/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/elib/*": ["./node_modules/*"]
     }
   }
 }
