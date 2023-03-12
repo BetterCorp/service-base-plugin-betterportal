@@ -45,7 +45,7 @@ export interface BSBFastifyCallable extends ServiceCallable {
   get<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string,
+    permissionRequired: string | null,
     listener: FastifyNoBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
@@ -56,7 +56,7 @@ export interface BSBFastifyCallable extends ServiceCallable {
   post<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string,
+    permissionRequired: string | null,
     listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
@@ -67,7 +67,7 @@ export interface BSBFastifyCallable extends ServiceCallable {
   put<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string,
+    permissionRequired: string | null,
     listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
@@ -78,7 +78,7 @@ export interface BSBFastifyCallable extends ServiceCallable {
   delete<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string,
+    permissionRequired: string | null,
     listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
@@ -89,7 +89,7 @@ export interface BSBFastifyCallable extends ServiceCallable {
   patch<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string,
+    permissionRequired: string | null,
     listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
@@ -260,7 +260,7 @@ export class Service
       this.get(
         serviceName,
         "/bpui/:assetKey/*",
-        "*",
+        null,
         async (
           reply,
           token,
@@ -325,7 +325,7 @@ export class Service
             ) {
               console.log("try default ext2! : OK");
               requestedFile = requestedFile + "." + dir.defaultExtension;
-              redirect = linePaths.join('/') + '/'+ requestedFile;
+              redirect = linePaths.join("/") + "/" + requestedFile;
             } else if (!Tools.isString(dir.defaultFile))
               return reply
                 .status(404)
@@ -392,11 +392,7 @@ export class Service
             return reply.status(200).send(reader);
           }
           return;
-        },
-        undefined,
-        undefined,
-        true,
-        false
+        }
       );
     }
   }
@@ -404,8 +400,8 @@ export class Service
     this.canCache = await (await this.getPluginConfig()).canCache;
     this.webJwt.init(
       {
-        bearerStr: "BPAuth",
-        queryKey: "BPT",
+        bearerStr: "Bearer",
+        queryKey: "auth",
         defaultTokenType: EJWTTokenType.req,
         allowedTokenTypes: [
           EJWTTokenType.query,
@@ -426,7 +422,7 @@ export class Service
   public async get<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string,
+    permissionRequired: string | null,
     listener: FastifyNoBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
@@ -489,7 +485,7 @@ export class Service
   public async post<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string,
+    permissionRequired: string | null,
     listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
@@ -554,7 +550,7 @@ export class Service
   public async put<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string,
+    permissionRequired: string | null,
     listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
@@ -622,7 +618,7 @@ export class Service
   public async delete<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string,
+    permissionRequired: string | null,
     listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
@@ -690,7 +686,7 @@ export class Service
   public async patch<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string,
+    permissionRequired: string | null,
     listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
@@ -758,7 +754,7 @@ export class Service
   private async handleRequest<Path extends string>(
     path: Path,
     serviceName: string,
-    permissionRequired: string,
+    permissionRequired: string | null,
     require2FA: boolean,
     roles: Array<string>,
     request: FastifyRequestPath<"/:clientId/">,
@@ -796,6 +792,14 @@ export class Service
       "Cache-Control",
       "no-store, no-cache, max-age=0, must-revalidate"
     );
+    if (permissionRequired === null) {
+      return {
+        success: true,
+        token: undefined,
+        clientId: undefined,
+        roles: undefined,
+      };
+    }
     try {
       let tempToken: AuthToken | boolean | null =
         await this.webJwt.verifyWebRequest<AuthToken>(request, tokenType);
@@ -820,6 +824,7 @@ export class Service
     if (Tools.isNullOrUndefined(clients[request.params.clientId]))
       return { success: false, code: 403, message: "Invalid client" };
     if (permissionRequired === "") {
+      // Null ignores any auth flow, whereas a blank string still validates requests if they contain an auth token.
       return {
         success: true,
         token,

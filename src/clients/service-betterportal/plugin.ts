@@ -47,6 +47,19 @@ export class betterPortal extends ServicesClient<
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean
+  ): Promise<void>
+  public async get<Path extends string>(
+    path: Path,
+    permissionRequired: null,
+    listener: FastifyNoBodyRequestHandler<Path>
+  ): Promise<void>
+  public async get<Path extends string>(
+    path: Path,
+    permissionRequired: string | null,
+    listener: FastifyNoBodyRequestHandler<Path>,
+    roles?: Array<string>,
+    allowedTokenTypes?: EJWTTokenType,
+    optionalAuth?: boolean
   ): Promise<void> {
     await this._plugin.callPluginMethod(
       "get",
@@ -63,6 +76,19 @@ export class betterPortal extends ServicesClient<
   public async post<Path extends string>(
     path: Path,
     permissionRequired: string,
+    listener: FastifyBodyRequestHandler<Path>,
+    roles?: Array<string>,
+    allowedTokenTypes?: EJWTTokenType,
+    optionalAuth?: boolean
+  ): Promise<void> ;
+  public async post<Path extends string>(
+    path: Path,
+    permissionRequired: null,
+    listener: FastifyBodyRequestHandler<Path>
+  ): Promise<void> ;
+  public async post<Path extends string>(
+    path: Path,
+    permissionRequired: string | null,
     listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
@@ -87,6 +113,19 @@ export class betterPortal extends ServicesClient<
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean
+  ): Promise<void> ;
+  public async put<Path extends string>(
+    path: Path,
+    permissionRequired: null,
+    listener: FastifyBodyRequestHandler<Path>
+  ): Promise<void> ;
+  public async put<Path extends string>(
+    path: Path,
+    permissionRequired: string | null,
+    listener: FastifyBodyRequestHandler<Path>,
+    roles?: Array<string>,
+    allowedTokenTypes?: EJWTTokenType,
+    optionalAuth?: boolean
   ): Promise<void> {
     await this._plugin.callPluginMethod(
       "put",
@@ -107,6 +146,19 @@ export class betterPortal extends ServicesClient<
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
     optionalAuth?: boolean
+  ): Promise<void>;
+  public async delete<Path extends string>(
+    path: Path,
+    permissionRequired: null,
+    listener: FastifyBodyRequestHandler<Path>
+  ): Promise<void>;
+  public async delete<Path extends string>(
+    path: Path,
+    permissionRequired: string | null,
+    listener: FastifyBodyRequestHandler<Path>,
+    roles?: Array<string>,
+    allowedTokenTypes?: EJWTTokenType,
+    optionalAuth?: boolean
   ): Promise<void> {
     await this._plugin.callPluginMethod(
       "delete",
@@ -123,6 +175,19 @@ export class betterPortal extends ServicesClient<
   public async patch<Path extends string>(
     path: Path,
     permissionRequired: string,
+    listener: FastifyBodyRequestHandler<Path>,
+    roles?: Array<string>,
+    allowedTokenTypes?: EJWTTokenType,
+    optionalAuth?: boolean
+  ): Promise<void>;
+  public async patch<Path extends string>(
+    path: Path,
+    permissionRequired: null,
+    listener: FastifyBodyRequestHandler<Path>
+  ): Promise<void>;
+  public async patch<Path extends string>(
+    path: Path,
+    permissionRequired: string | null,
     listener: FastifyBodyRequestHandler<Path>,
     roles?: Array<string>,
     allowedTokenTypes?: EJWTTokenType,
