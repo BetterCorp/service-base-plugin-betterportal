@@ -13,22 +13,36 @@ import { IncomingMessage } from "http";
 
 export interface AuthToken {
   host: string;
-  tenantId: string;
-  appId?: string;
-  authedAppId: string;
-  userId: string;
+  iss: string;
+  verified: boolean;
+  last2FATime: number;
+  has2FASetup: boolean;
   name: string;
   surname?: string;
   email: string;
-  cell?: string;
-  clients: IDictionary<User_Client>;
+  clientId?: string;
+  clientName?: string;
+  clientPermissions?: ClientPermissions;
   sessionStarted: number;
   sessionKey: string;
-  expires: number;
-  last2FATime: number;
-  has2FASetup: boolean;
+  userId: string;
+  appId: string;
+  tenantId: string;
+  ip: string;
+  cid: string;
+  scope: string;
   sub: string;
+  exp: number;
+  nbf: number;
+  iat: number;
+  jti: string;
+  expMS: number;
 }
+
+export interface ClientPermissions extends IDictionary<Array<string>> {
+  _: string[];
+}
+
 export interface User_Client {
   name: string;
   enabled: boolean;

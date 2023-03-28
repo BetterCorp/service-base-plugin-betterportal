@@ -30,6 +30,7 @@
     "@bettercorp/service-base": "^8.3.19",
     "@bettercorp/service-base-plugin-web-server": "^6.5.2",
     "@bettercorp/tools": "^2.1.30",
+    "@casl/ability": "^6.3.3",
     "@types/node": "^18.15.0",
     "fastify-express": "^0.4.0",
     "mime-types": "^2.1.35"

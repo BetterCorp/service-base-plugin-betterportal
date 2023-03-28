@@ -8,20 +8,20 @@ import {
   webJwtLocal,
 } from "@bettercorp/service-base-plugin-web-server";
 import { EJWTTokenType } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-webjwt/sec.config";
-import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
+//import { defineAbility } from '@casl/ability';
 import { CleanStringStrength, Tools } from "@bettercorp/tools/lib/Tools";
 import { FastifyReply } from "fastify";
 import {
   AuthToken,
-  User_Client,
   FastifyRequestPath,
   FastifyNoBodyRequestHandler,
   FastifyBodyRequestHandler,
   ReplyRequestCacheConfig,
   ReplyRequestCacheConfigAbility,
+  ClientPermissions,
 } from "../../index";
 import type { MyPluginConfig } from "./sec.config";
-import path, { join } from "path";
+import path, { join, sep } from "path";
 import { existsSync, createReadStream, readdir, stat, readFileSync } from "fs";
 import { createHash } from "crypto";
 import { contentType } from "mime-types";
@@ -303,18 +303,18 @@ export class Service
             dir.allowedFileTypes.filter((y) => y.test(requestedFile!))
               .length === 0
           ) {
-            console.log(
+            /*console.log(
               "try default ext!" +
                 join(dir.path, requestedFile + "." + dir.defaultExtension),
               Tools.isString(dir.defaultExtension)
-            );
+            );*/
             if (
               Tools.isString(dir.defaultExtension) &&
               existsSync(
                 join(dir.path, requestedFile + "." + dir.defaultExtension)
               )
             ) {
-              console.log("try default ext! : OK");
+              //console.log("try default ext! : OK");
               requestedFile = requestedFile + "." + dir.defaultExtension;
               redirect = requestedFile;
             } else if (
@@ -323,7 +323,7 @@ export class Service
                 join(onFileBase, requestedFile + "." + dir.defaultExtension)
               )
             ) {
-              console.log("try default ext2! : OK");
+              //console.log("try default ext2! : OK");
               requestedFile = requestedFile + "." + dir.defaultExtension;
               redirect = linePaths.join("/") + "/" + requestedFile;
             } else if (!Tools.isString(dir.defaultFile))
@@ -355,7 +355,12 @@ export class Service
                 join(onFileBase, requestedFileStored!)
               );
               if (newFile !== false)
-                newFile = join(requestedFileStored!, newFile);
+                newFile = join(
+                  requestedFileStored!,
+                  "./",
+                  onFileBase.split(`/${dir.dir}/`)[1],
+                  newFile
+                );
             }
             if (newFile === false)
               return reply
@@ -378,8 +383,15 @@ export class Service
           else if (requestedFile.endsWith(".vue"))
             reply.type("application/javascript");
           else if (requestedFile.endsWith(".css")) reply.type("text/css");
-          else
-            reply.type(contentType(onFilePath) || "application/octet-stream");
+          else {
+            let fileSpl = onFilePath.split(sep);
+            let cType =
+              fileSpl.length > 1
+                ? contentType(fileSpl[fileSpl.length - 1])
+                : false;
+            if ((cType || "").indexOf("/bpui/") >= 0) cType = false;
+            reply.type(cType || "application/octet-stream");
+          }
 
           if (
             checkCacheCanSendData(cacheHash, {
@@ -757,7 +769,7 @@ export class Service
     permissionRequired: string | null,
     require2FA: boolean,
     roles: Array<string>,
-    request: FastifyRequestPath<"/:clientId/">,
+    request: FastifyRequestPath<"/">,
     reply: FastifyReply,
     tokenType?: EJWTTokenType
   ): Promise<{
@@ -818,11 +830,8 @@ export class Service
       return { success: false, code: 401, message: "Invalid token" };
     if (Tools.isNullOrUndefined(request.params))
       return { success: false, code: 401, message: "Invalid path" };
-    if (token.host !== host)
-      return { success: false, code: 401, message: "Invalid app" };
-    let clients = this.getClientsAvailToMe(token.clients);
-    if (Tools.isNullOrUndefined(clients[request.params.clientId]))
-      return { success: false, code: 403, message: "Invalid client" };
+    /*if (token.host !== host)
+      return { success: false, code: 401, message: "Invalid app" };*/
     if (permissionRequired === "") {
       // Null ignores any auth flow, whereas a blank string still validates requests if they contain an auth token.
       return {
@@ -832,10 +841,15 @@ export class Service
         roles: undefined,
       };
     }
+    //let clients = this.getClientsAvailToMe(token.clients);
+    if (
+      Tools.isNullOrUndefined(token.clientId) ||
+      Tools.isNullOrUndefined(token.clientPermissions)
+    )
+      return { success: false, code: 403, message: "Invalid client" };
     if (
       this._userHasPermission(
-        clients,
-        request.params!.clientId!,
+        token.clientPermissions,
         serviceName,
         permissionRequired
       )
@@ -850,14 +864,9 @@ export class Service
       return {
         success: true,
         token,
-        clientId: request.params.clientId!,
+        clientId: token.clientId!,
         roles: roles.filter((x) =>
-          this._userHasPermission(
-            clients,
-            request.params!.clientId!,
-            serviceName,
-            x
-          )
+          this._userHasPermission(token.clientPermissions!, serviceName, x)
         ),
       };
     }
@@ -865,56 +874,26 @@ export class Service
   }
 
   private _userHasPermission(
-    clients: IDictionary<User_Client>,
-    clientId: string,
+    permissions: ClientPermissions,
     serviceName: string,
     permissionRequired: string
   ): boolean {
-    if (Tools.isNullOrUndefined(clients[clientId])) return false;
-    if (Tools.isNullOrUndefined(clients[clientId].sar)) return false;
-    if (Tools.isArray(clients[clientId].sar._)) {
-      if (clients[clientId].sar._.indexOf("root") >= 0) {
+    if (Tools.isArray(permissions._)) {
+      if (permissions._.indexOf("root") >= 0) {
         return true;
       }
-      if (clients[clientId].sar._.indexOf(permissionRequired) >= 0) {
+      if (permissions._.indexOf(permissionRequired) >= 0) {
         return true;
       }
     }
-    if (Tools.isArray(clients[clientId].sar[serviceName.toLowerCase()])) {
-      if (clients[clientId].sar[serviceName.toLowerCase()].indexOf("root") >= 0)
+    if (Tools.isArray(permissions[serviceName.toLowerCase()])) {
+      if (permissions[serviceName.toLowerCase()].indexOf("root") >= 0)
         return true;
       if (
-        clients[clientId].sar[serviceName.toLowerCase()].indexOf(
-          permissionRequired
-        ) >= 0
+        permissions[serviceName.toLowerCase()].indexOf(permissionRequired) >= 0
       )
         return true;
     }
     return false;
-  }
-
-  private getClientsAvailToMe(
-    clients?: IDictionary<User_Client>
-  ): IDictionary<User_Client> {
-    let clientsList: IDictionary<User_Client> = {};
-
-    if (clients === undefined || clients === null) return clientsList;
-
-    const now = new Date().getTime();
-    for (let clientId of Object.keys(clients)) {
-      if (clients[clientId].enabled !== true) continue;
-
-      if (Tools.isNullOrUndefined(clients[clientId].timeframe))
-        clientsList[clientId] = clients[clientId];
-      else {
-        if (
-          clients[clientId].timeframe!.timeFrom >= now &&
-          clients[clientId].timeframe!.timeTo < now
-        )
-          clientsList[clientId] = clients[clientId];
-      }
-    }
-
-    return clientsList;
   }
 }
