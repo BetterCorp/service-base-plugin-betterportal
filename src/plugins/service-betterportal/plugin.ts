@@ -19,6 +19,7 @@ import {
   ReplyRequestCacheConfig,
   ReplyRequestCacheConfigAbility,
   ClientPermissions,
+  BetterPortalCapabilityConfigurable,
 } from "../../index";
 import type { MyPluginConfig } from "./sec.config";
 import path, { join, sep } from "path";
@@ -40,7 +41,19 @@ export interface BetterPortalEvents extends ServiceCallable {
     meta: BetterPortalBasicEvents
   ): Promise<void>;
 }
-export interface BSBFastifyCallable extends ServiceCallable {
+export interface BetterPortalCallable extends ServiceCallable {
+  addCapability(
+    serviceName: string,
+    capability: BetterPortalCapabilityConfigurable,
+    capabilityCallback: {
+      (
+        token: AuthToken | null,
+        clientId: string | null,
+        param?: string,
+        optional?: Record<string, string>
+      ): Promise<any>;
+    }
+  ): Promise<void>;
   initBPUI(serviceName: string, path: string): Promise<void>;
   get<Path extends string>(
     serviceName: string,
@@ -104,10 +117,10 @@ export class Service
     ServiceCallable,
     ServiceCallable,
     ServiceCallable,
-    ServiceCallable,
+    BetterPortalCallable,
     MyPluginConfig
   >
-  implements BSBFastifyCallable
+  implements BetterPortalCallable
 {
   public override readonly initAfterPlugins: string[] = [
     "service-fastify",
@@ -118,6 +131,17 @@ export class Service
   private fastify: fastify;
   private webJwt!: webJwtLocal;
   private canCache: boolean = true;
+  private capabilities: Array<{
+    capability: BetterPortalCapabilityConfigurable;
+    capabilityCallback: {
+      (
+        token: AuthToken | null,
+        clientId: string | null,
+        param?: string | undefined,
+        optional?: Record<string, string> | undefined
+      ): Promise<any>;
+    };
+  }> = [];
   constructor(
     pluginName: string,
     cwd: string,
@@ -408,9 +432,34 @@ export class Service
       );
     }
   }
+  public async addCapability(
+    serviceName: string,
+    capability: BetterPortalCapabilityConfigurable,
+    capabilityCallback: {
+      (
+        token: AuthToken | null,
+        clientId: string | null,
+        param?: string | undefined,
+        optional?: Record<string, string> | undefined
+      ): Promise<any>;
+    }
+  ): Promise<void> {
+    await this.log.info(
+      "Adding new capability [{capability}] for [{serviceName}]",
+      {
+        capability: capability,
+        serviceName: serviceName,
+      }
+    );
+    this.capabilities.push({
+      capability,
+      capabilityCallback,
+    });
+  }
   public override async init(): Promise<void> {
+    const self = this;
     this.canCache = await (await this.getPluginConfig()).canCache;
-    this.webJwt.init(
+    await this.webJwt.init(
       {
         bearerStr: "Bearer",
         queryKey: "auth",
@@ -428,6 +477,57 @@ export class Service
       {
         issuer: (await this.getPluginConfig()).issuer,
       }
+    );
+    await this.get(
+      "betterportal",
+      "/bp/capabilities/",
+      null,
+      async (
+        reply,
+        token,
+        clientId,
+        roles,
+        params,
+        query,
+        checkCacheCanSendData,
+        req
+      ): Promise<any> => {
+        let capas = self.capabilities
+          .map((x) => self.capabilities.map((x) => x.capability))
+          .filter((x, i, a) => a.indexOf(x) === i);
+        let hash = await this.createMD5(capas.join("-"));
+        if (
+          this.canSendNewDocumentCache(req as any, reply, hash, {
+            cacheAbility: ReplyRequestCacheConfigAbility.all,
+            maxAge: 60 * 60 * 24,
+          })
+        ) {
+          return reply.status(202).send(capas);
+        }
+      }
+    );
+    await this.get(
+      "betterportal",
+      "/bp/capabilities/:capability/:optionalparam?/",
+      "",
+      async (reply, token, clientId, roles, params, query) => {
+        let responses: Array<any> = [];
+        for (let cap of self.capabilities) {
+          if (cap.capability !== params.capability) continue;
+          let res = await cap.capabilityCallback(
+            token ?? null,
+            clientId ?? null,
+            params.optionalparam,
+            query
+          );
+          if (Tools.isNullOrUndefined(res)) continue;
+          responses.push(res);
+        }
+        return reply.status(202).send(responses);
+      },
+      undefined,
+      undefined,
+      true
     );
   }
 

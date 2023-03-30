@@ -5,11 +5,13 @@ import {
 } from "@bettercorp/service-base";
 import { MyPluginConfig } from "../../plugins/service-betterportal/sec.config";
 import type {
-  BSBFastifyCallable,
+  BetterPortalCallable,
   BetterPortalBasicEvents,
   BetterPortalEvents,
 } from "../../plugins/service-betterportal/plugin";
 import type {
+  AuthToken,
+  BetterPortalCapabilityConfigurable,
   FastifyBodyRequestHandler,
   FastifyNoBodyRequestHandler,
 } from "../../index";
@@ -20,7 +22,7 @@ export class betterPortal extends ServicesClient<
   ServiceCallable,
   ServiceCallable,
   ServiceCallable,
-  BSBFastifyCallable,
+  BetterPortalCallable,
   MyPluginConfig
 > {
   private readonly _serviceName: string;
@@ -37,6 +39,25 @@ export class betterPortal extends ServicesClient<
       "initBPUI",
       this._serviceName,
       path || this._pluginBase
+    );
+  }
+
+  public async addCapability(
+    capability: BetterPortalCapabilityConfigurable,
+    capabilityCallback: {
+      (
+        token: AuthToken | null,
+        clientId: string | null,
+        param?: string,
+        optional?: Record<string, string>
+      ): Promise<any>;
+    }
+  ): Promise<void> {
+    return await this._plugin.callPluginMethod(
+      "addCapability",
+      this._serviceName,
+      capability,
+      capabilityCallback
     );
   }
 

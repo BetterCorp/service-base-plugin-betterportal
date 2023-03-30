@@ -11,6 +11,23 @@ import {
 import type { ParamsFromPath } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-fastify/lib";
 import { IncomingMessage } from "http";
 
+export enum BetterPortalCapabilityConfigurable {
+  search = "search",
+  searchCache = "searchCache",
+  searchAuthed = "searchAuthed",
+  searchCacheAuthed = "searchCacheAuthed",
+  changelog = "changelog",
+  settings = "settings",
+  settingsAuthed = "settingsAuthed",
+}
+export enum BetterPortalCapabilityInternal {
+  uiServices = "uiServices",
+  permissions = "permissions",
+}
+export type BetterPortalCapability =
+  | BetterPortalCapabilityInternal
+  | BetterPortalCapabilityConfigurable;
+
 export interface AuthToken {
   host: string;
   iss: string;
