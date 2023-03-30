@@ -492,12 +492,13 @@ export class Service
         checkCacheCanSendData,
         req
       ): Promise<any> => {
+        const hash = createHash("md5");
         let capas = self.capabilities
           .map((x) => self.capabilities.map((x) => x.capability))
-          .filter((x, i, a) => a.indexOf(x) === i);
-        let hash = await this.createMD5(capas.join("-"));
+          .filter((x, i, a) => a.indexOf(x) === i) as unknown as Array<string>;
+        for (let capa of capas) hash.update(capa);
         if (
-          this.canSendNewDocumentCache(req as any, reply, hash, {
+          this.canSendNewDocumentCache(req as any, reply, hash.digest("hex"), {
             cacheAbility: ReplyRequestCacheConfigAbility.all,
             maxAge: 60 * 60 * 24,
           })
