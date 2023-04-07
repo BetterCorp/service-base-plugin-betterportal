@@ -9,13 +9,19 @@ import type {
   BetterPortalBasicEvents,
   BetterPortalEvents,
 } from "../../plugins/service-betterportal/plugin";
-import type {
-  AuthToken,
-  BetterPortalCapabilityConfigurable,
-  FastifyBodyRequestHandler,
-  FastifyNoBodyRequestHandler,
+import {
+  PermissionAction,
+  type BasePermission,
+  type BetterPortalCapability,
+  type BetterPortalCapabilityConfigurable,
+  type BetterPortalCapabilityHandler,
+  type FastifyBodyRequestHandler,
+  type FastifyNoBodyRequestHandler,
+  type MyPermissionRequired,
+  FieldPermission,
 } from "../../index";
-import type { EJWTTokenType } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-webjwt/sec.config";
+import { EJWTTokenType } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-webjwt/sec.config";
+import { Tools } from "@bettercorp/tools";
 
 export class betterPortal extends ServicesClient<
   BetterPortalEvents,
@@ -42,192 +48,30 @@ export class betterPortal extends ServicesClient<
     );
   }
 
-  public async addCapability(
+  public async addCapability<
+    Capability extends BetterPortalCapability,
+    key extends { [key: number]: string }
+  >(
     capability: BetterPortalCapabilityConfigurable,
-    capabilityCallback: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        param?: string,
-        optional?: Record<string, string>
-      ): Promise<any>;
-    }
+    capabilityKey: key,
+    capabilityHandler: BetterPortalCapabilityHandler<Capability, key>,
+    permission: BasePermission | null
   ): Promise<void> {
     return await this._plugin.callPluginMethod(
       "addCapability",
       this._serviceName,
       capability,
-      capabilityCallback
-    );
-  }
-
-  public async get<Path extends string>(
-    path: Path,
-    permissionRequired: string,
-    listener: FastifyNoBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean
-  ): Promise<void>
-  public async get<Path extends string>(
-    path: Path,
-    permissionRequired: null,
-    listener: FastifyNoBodyRequestHandler<Path>
-  ): Promise<void>
-  public async get<Path extends string>(
-    path: Path,
-    permissionRequired: string | null,
-    listener: FastifyNoBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean
-  ): Promise<void> {
-    await this._plugin.callPluginMethod(
-      "get",
-      this._serviceName,
-      path,
-      permissionRequired,
-      listener as FastifyNoBodyRequestHandler<string>,
-      roles,
-      allowedTokenTypes,
-      optionalAuth
-    );
-  }
-
-  public async post<Path extends string>(
-    path: Path,
-    permissionRequired: string,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean
-  ): Promise<void> ;
-  public async post<Path extends string>(
-    path: Path,
-    permissionRequired: null,
-    listener: FastifyBodyRequestHandler<Path>
-  ): Promise<void> ;
-  public async post<Path extends string>(
-    path: Path,
-    permissionRequired: string | null,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean
-  ): Promise<void> {
-    await this._plugin.callPluginMethod(
-      "post",
-      this._serviceName,
-      path,
-      permissionRequired,
-      listener as FastifyBodyRequestHandler<string>,
-      roles,
-      allowedTokenTypes,
-      optionalAuth
-    );
-  }
-
-  public async put<Path extends string>(
-    path: Path,
-    permissionRequired: string,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean
-  ): Promise<void> ;
-  public async put<Path extends string>(
-    path: Path,
-    permissionRequired: null,
-    listener: FastifyBodyRequestHandler<Path>
-  ): Promise<void> ;
-  public async put<Path extends string>(
-    path: Path,
-    permissionRequired: string | null,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean
-  ): Promise<void> {
-    await this._plugin.callPluginMethod(
-      "put",
-      this._serviceName,
-      path,
-      permissionRequired,
-      listener as FastifyBodyRequestHandler<string>,
-      roles,
-      allowedTokenTypes,
-      optionalAuth
-    );
-  }
-
-  public async delete<Path extends string>(
-    path: Path,
-    permissionRequired: string,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean
-  ): Promise<void>;
-  public async delete<Path extends string>(
-    path: Path,
-    permissionRequired: null,
-    listener: FastifyBodyRequestHandler<Path>
-  ): Promise<void>;
-  public async delete<Path extends string>(
-    path: Path,
-    permissionRequired: string | null,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean
-  ): Promise<void> {
-    await this._plugin.callPluginMethod(
-      "delete",
-      this._serviceName,
-      path,
-      permissionRequired,
-      listener as FastifyBodyRequestHandler<string>,
-      roles,
-      allowedTokenTypes,
-      optionalAuth
-    );
-  }
-
-  public async patch<Path extends string>(
-    path: Path,
-    permissionRequired: string,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean
-  ): Promise<void>;
-  public async patch<Path extends string>(
-    path: Path,
-    permissionRequired: null,
-    listener: FastifyBodyRequestHandler<Path>
-  ): Promise<void>;
-  public async patch<Path extends string>(
-    path: Path,
-    permissionRequired: string | null,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean
-  ): Promise<void> {
-    await this._plugin.callPluginMethod(
-      "patch",
-      this._serviceName,
-      path,
-      permissionRequired,
-      listener as FastifyBodyRequestHandler<string>,
-      roles,
-      allowedTokenTypes,
-      optionalAuth
+      capabilityKey,
+      capabilityHandler as any,
+      permission
     );
   }
 
   public async emitEvent<T extends BetterPortalBasicEvents = any>(
-    tenantId: string, category: string, action: string, meta: T
+    tenantId: string,
+    category: string,
+    action: string,
+    meta: T
   ): Promise<void> {
     await this._plugin.emitEvent(
       "onEvent",
@@ -252,5 +96,152 @@ export class betterPortal extends ServicesClient<
       throw "cannot listen to events from any other service but the core portal service";
     // this is a forced listener
     await this._plugin.onEvent("onEvent", listener as any as never);
+  }
+
+  public async read<Path extends string>(
+    path: Path,
+    permission: MyPermissionRequired | null,
+    listener: FastifyNoBodyRequestHandler<Path>,
+    allowedTokenTypes: EJWTTokenType = EJWTTokenType.req
+  ): Promise<void> {
+    await this._plugin.callPluginMethod(
+      "get",
+      this._serviceName,
+      path,
+      permission === null
+        ? null
+        : {
+            optional: permission.optional,
+            permission: {
+              action: PermissionAction.read,
+              ...permission.permission,
+            },
+          },
+      listener as FastifyNoBodyRequestHandler<string>,
+      allowedTokenTypes
+    );
+  }
+
+  public async create<Path extends string>(
+    path: Path,
+    permission: MyPermissionRequired | null,
+    listener: FastifyBodyRequestHandler<Path>
+  ): Promise<void> {
+    await this._plugin.callPluginMethod(
+      "post",
+      this._serviceName,
+      path,
+      permission === null
+        ? null
+        : {
+            optional: permission.optional,
+            permission: {
+              action: PermissionAction.create,
+              ...permission.permission,
+            },
+          },
+      listener as FastifyBodyRequestHandler<string>
+    );
+  }
+
+  public async execute<Path extends string>(
+    path: Path,
+    permission: MyPermissionRequired | null,
+    listener: FastifyBodyRequestHandler<Path>
+  ): Promise<void> {
+    await this._plugin.callPluginMethod(
+      "put",
+      this._serviceName,
+      path,
+      permission === null
+        ? null
+        : {
+            optional: permission.optional,
+            permission: {
+              action: PermissionAction.execute,
+              ...permission.permission,
+            },
+          },
+      listener as FastifyBodyRequestHandler<string>
+    );
+  }
+
+  public async delete<Path extends string>(
+    path: Path,
+    permission: MyPermissionRequired | null,
+    listener: FastifyBodyRequestHandler<Path>
+  ): Promise<void> {
+    await this._plugin.callPluginMethod(
+      "delete",
+      this._serviceName,
+      path,
+      permission === null
+        ? null
+        : {
+            optional: permission.optional,
+            permission: {
+              action: PermissionAction.delete,
+              ...permission.permission,
+            },
+          },
+      listener as FastifyBodyRequestHandler<string>
+    );
+  }
+
+  public async update<Path extends string>(
+    path: Path,
+    permission: MyPermissionRequired | null,
+    listener: FastifyBodyRequestHandler<Path>
+  ): Promise<void> {
+    await this._plugin.callPluginMethod(
+      "patch",
+      this._serviceName,
+      path,
+      permission === null
+        ? null
+        : {
+            optional: permission.optional,
+            permission: {
+              action: PermissionAction.update,
+              ...permission.permission,
+            },
+          },
+      listener as FastifyBodyRequestHandler<string>
+    );
+  }
+
+  public rewriteObjectBasedOnPermissions<T extends Object | Array<TO> = any, TO = any>(
+    fields: FieldPermission[],
+    fieldPaths: Array<string> | undefined,
+    object: T
+  ): T {
+    if (fieldPaths === undefined) return object;
+
+    let removeFieldPaths: Array<string> = fields
+      .filter((x) => fieldPaths.indexOf(x.fieldPath) < 0)
+      .map((x) => x.fieldPath);
+
+    let newObject = JSON.parse(JSON.stringify(object));
+    for (let fieldPathToRewrite of removeFieldPaths) {
+      if (Tools.isArray(newObject)) {
+        newObject = newObject.map((x) => {
+          return Tools.setUpdatedTemplatePathFinder(
+            fieldPathToRewrite,
+            null,
+            x
+          );
+        });
+      } else if (Tools.isObject(newObject)) {
+        newObject = Tools.setUpdatedTemplatePathFinder(
+          fieldPathToRewrite,
+          null,
+          newObject
+        );
+      } else {
+        throw "cannot rewrite non object or array";
+      }
+    }
+
+    return newObject;
   }
 }

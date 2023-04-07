@@ -19,11 +19,27 @@ import {
   ReplyRequestCacheConfig,
   ReplyRequestCacheConfigAbility,
   ClientPermissions,
+  BetterPortalCapabilityHandler,
+  BetterPortalCapability,
+  PermissionRequired,
+  BasePermission,
+  BetterPortalCapabilityInternal,
+  BetterPortalCapabilityConfigurableAuthed,
   BetterPortalCapabilityConfigurable,
+  UIService,
+  PermissionAction,
+  PermissionDefinition,
 } from "../../index";
 import type { MyPluginConfig } from "./sec.config";
 import path, { join, sep } from "path";
-import { existsSync, createReadStream, readdir, stat, readFileSync } from "fs";
+import {
+  existsSync,
+  createReadStream,
+  readdir,
+  stat,
+  readFileSync,
+  readdirSync,
+} from "fs";
 import { createHash } from "crypto";
 import { contentType } from "mime-types";
 import type { ParamsFromPath } from "@bettercorp/service-base-plugin-web-server/lib/plugins/service-fastify/lib";
@@ -42,72 +58,52 @@ export interface BetterPortalEvents extends ServiceCallable {
   ): Promise<void>;
 }
 export interface BetterPortalCallable extends ServiceCallable {
-  addCapability(
+  addCapability<
+    Capability extends BetterPortalCapability,
+    key extends { [key: string]: string }
+  >(
     serviceName: string,
-    capability: BetterPortalCapabilityConfigurable,
-    capabilityCallback: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        param?: string,
-        optional?: Record<string, string>
-      ): Promise<any>;
-    }
+    capability: Capability,
+    capabilityKey: key,
+    capabilityHandler: BetterPortalCapabilityHandler<Capability, key>,
+    permission: BasePermission | null
   ): Promise<void>;
   initBPUI(serviceName: string, path: string): Promise<void>;
+
   get<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string | null,
+    permissionRequired: PermissionRequired,
     listener: FastifyNoBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean,
-    require2FA?: boolean
+    allowedTokenTypes?: EJWTTokenType
   ): Promise<void>;
 
   post<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string | null,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean,
-    require2FA?: boolean
+    permissionRequired: PermissionRequired,
+    listener: FastifyBodyRequestHandler<Path>
   ): Promise<void>;
 
   put<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string | null,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean,
-    require2FA?: boolean
+    permissionRequired: PermissionRequired,
+    listener: FastifyBodyRequestHandler<Path>
   ): Promise<void>;
 
   delete<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string | null,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean,
-    require2FA?: boolean
+    permissionRequired: PermissionRequired,
+    listener: FastifyBodyRequestHandler<Path>
   ): Promise<void>;
 
   patch<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string | null,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes?: EJWTTokenType,
-    optionalAuth?: boolean,
-    require2FA?: boolean
+    permissionRequired: PermissionRequired,
+    listener: FastifyBodyRequestHandler<Path>
   ): Promise<void>;
 }
 
@@ -133,14 +129,12 @@ export class Service
   private canCache: boolean = true;
   private capabilities: Array<{
     capability: BetterPortalCapabilityConfigurable;
-    capabilityCallback: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        param?: string | undefined,
-        optional?: Record<string, string> | undefined
-      ): Promise<any>;
-    };
+    capabilityKey: { [key: string]: string };
+    capabilityHandler: BetterPortalCapabilityHandler<
+      BetterPortalCapabilityConfigurable,
+      { [key: string]: string }
+    >;
+    permission: BasePermission | null;
   }> = [];
   constructor(
     pluginName: string,
@@ -152,7 +146,7 @@ export class Service
     this.fastify = new fastify(this);
     this.webJwt = new webJwtLocal(this);
   }
-  private readonly _service2FAMaxTime = 5 * 60 * 1000;
+  //private readonly _service2FAMaxTime = 5 * 60 * 1000;
   private walkFilePath(
     dir: string,
     passingBase: Array<string> = []
@@ -280,6 +274,55 @@ export class Service
           },
         },
       ];
+
+      for (let viewDir of specialityDirs.filter((x) => x.dir === "views")) {
+        await this.addCapability<
+          BetterPortalCapabilityInternal.uiServices,
+          { views: "views" }
+        >(
+          serviceName,
+          BetterPortalCapabilityInternal.uiServices,
+          { views: "views" },
+          async (token, clientId, key, query?: { theme: string }) => {
+            if (key !== "views") return [];
+            let uis: Array<UIService> = [];
+            let themes = readdirSync(viewDir.path);
+            if (Tools.isObject(query) && Tools.isString(query.theme))
+              themes = themes.filter((x) => x === query.theme);
+            for (let theme of themes.filter((x) =>
+              existsSync(join(viewDir.path, x, "./definition.json"))
+            )) {
+              let definitionFile = join(
+                viewDir.path,
+                theme,
+                "./definition.json"
+              );
+              let defitions = JSON.parse(
+                readFileSync(definitionFile).toString()
+              ) as Array<{
+                name: string;
+                description: string;
+                path: string;
+                requiresAdditionalServices: Array<string>;
+                requiresPermissions: Array<string>;
+              }>;
+              for (let definition of defitions) {
+                uis.push({
+                  name: definition.name,
+                  description: definition.description,
+                  path: definition.path,
+                  requiresAdditionalServices:
+                    definition.requiresAdditionalServices,
+                  requiresPermissions: definition.requiresPermissions,
+                  themeId: theme,
+                });
+              }
+            }
+            return uis;
+          },
+          null
+        );
+      }
 
       this.get(
         serviceName,
@@ -432,17 +475,15 @@ export class Service
       );
     }
   }
-  public async addCapability(
+  public async addCapability<
+    Capability extends BetterPortalCapability,
+    key extends { [key: string]: string }
+  >(
     serviceName: string,
-    capability: BetterPortalCapabilityConfigurable,
-    capabilityCallback: {
-      (
-        token: AuthToken | null,
-        clientId: string | null,
-        param?: string | undefined,
-        optional?: Record<string, string> | undefined
-      ): Promise<any>;
-    }
+    capability: Capability,
+    capabilityKey: key,
+    capabilityHandler: BetterPortalCapabilityHandler<Capability, key>,
+    permission: BasePermission | null
   ): Promise<void> {
     await this.log.info(
       "Adding new capability [{capability}] for [{serviceName}]",
@@ -452,8 +493,10 @@ export class Service
       }
     );
     this.capabilities.push({
-      capability,
-      capabilityCallback,
+      capability: capability as any,
+      capabilityKey,
+      capabilityHandler: capabilityHandler as any,
+      permission,
     });
   }
   public override async init(): Promise<void> {
@@ -486,17 +529,30 @@ export class Service
         reply,
         token,
         clientId,
-        roles,
+        fields,
         params,
         query,
         checkCacheCanSendData,
         req
       ): Promise<any> => {
         const hash = createHash("md5");
-        let capas = self.capabilities
-          .map((x) => self.capabilities.map((x) => x.capability))
-          .filter((x, i, a) => a.indexOf(x) === i) as unknown as Array<string>;
-        for (let capa of capas) hash.update(Buffer.from(capa, "utf8"));
+        let capas: Record<string, Array<string>> = {};
+        for (let capa of self.capabilities) {
+          capas[capa.capability] = capas[capa.capability] || [];
+          for (let capaKey of Object.keys(capa.capabilityKey)) {
+            if (capas[capa.capability].indexOf(capaKey) >= 0) continue;
+            capas[capa.capability].push(capaKey);
+          }
+        }
+        let keyhash = Object.keys(capas)
+          .sort((a, b) => a.localeCompare(b))
+          .map((x) => {
+            return (
+              x + ":" + capas[x].sort((a, b) => a.localeCompare(b)).join(",")
+            );
+          })
+          .join("|");
+        hash.update(Buffer.from(keyhash, "utf8"));
         if (
           this.canSendNewDocumentCache(req as any, reply, hash.digest("hex"), {
             cacheAbility: ReplyRequestCacheConfigAbility.all,
@@ -507,71 +563,128 @@ export class Service
         }
       }
     );
-    await this.get(
-      "betterportal",
-      "/bp/capabilities/:capability/:optionalparam?/",
-      "",
-      async (reply, token, clientId, roles, params, query) => {
-        let responses: Array<any> = [];
+    await this.fastify.get(
+      "/bp/capabilities/:capability/:key/",
+      async (reply, params, query, request) => {
+        if (!Tools.isString(params.key))
+          return reply.status(400).send("Invalid request");
+        let availCapabilities: Array<{
+          internal: boolean;
+          requireAuth: boolean;
+          capability: BetterPortalCapabilityConfigurable;
+          capabilityKey: { [key: string]: string };
+          capabilityHandler: BetterPortalCapabilityHandler<
+            BetterPortalCapabilityConfigurable,
+            { [key: string]: string }
+          >;
+          permission: BasePermission | null;
+        }> = [];
+
         for (let cap of self.capabilities) {
           if (cap.capability !== params.capability) continue;
-          let res = await cap.capabilityCallback(
-            token ?? null,
-            clientId ?? null,
-            params.optionalparam,
+          if (Tools.isNullOrUndefined(cap.capabilityKey[params.key])) continue;
+          availCapabilities.push({
+            ...cap,
+            internal:
+              Object.keys(BetterPortalCapabilityInternal).indexOf(
+                cap.capability
+              ) >= 0,
+            requireAuth:
+              Object.keys(BetterPortalCapabilityConfigurableAuthed).indexOf(
+                cap.capability
+              ) >= 0,
+          });
+        }
+
+        let responses: Array<any> = [];
+        if (availCapabilities.length === 0) {
+          return reply.status(404).send("No Capability found");
+        }
+        for (let cap of availCapabilities) {
+          if (cap.internal) {
+            let res = await cap.capabilityHandler(
+              null,
+              null,
+              cap.capabilityKey[params.key],
+              query
+            );
+            if (Tools.isNullOrUndefined(res)) {
+              return reply.status(500).send("Server Error");
+            }
+            responses.push(res);
+            continue;
+          }
+
+          let handleResponse = await self.handleRequest(
+            "/bp/capabilities/:capability/:key/",
+            "betterportal",
+            request as FastifyRequestPath<string>,
+            reply,
+            cap.requireAuth
+              ? {
+                  optional: cap.permission === null,
+                  permission: cap.permission as any, // we dont care about the actual permission at this point ...
+                }
+              : null
+          );
+          if (!handleResponse.success) {
+            return reply
+              .status(handleResponse.code || 400)
+              .send(handleResponse.message || "Server Error");
+          }
+          let res = await cap.capabilityHandler(
+            handleResponse.token ?? null,
+            handleResponse.clientId ?? null,
+            cap.capabilityKey[params.key],
             query
           );
-          if (Tools.isNullOrUndefined(res)) continue;
+          if (Tools.isNullOrUndefined(res)) {
+            return reply.status(500).send("Server Error");
+          }
           responses.push(res);
         }
-        return reply.status(202).send(responses);
-      },
-      undefined,
-      undefined,
-      true
+
+        return reply.status(202).send(responses.flat());
+      }
     );
   }
 
   public async get<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string | null,
+    permissionRequired: PermissionRequired,
     listener: FastifyNoBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
-    optionalAuth: boolean = false,
-    require2FA: boolean = false
+    allowedTokenTypes: EJWTTokenType = EJWTTokenType.req
   ): Promise<void> {
     const self = this;
+    if (permissionRequired !== null) {
+      this.addCapability(
+        serviceName,
+        BetterPortalCapabilityInternal.permissions,
+        PermissionAction,
+        async (token, clientId, key, query) => {
+          let definition: Array<PermissionDefinition> = [
+            {
+              path: path,
+              pathMethod: "GET",
+              ...permissionRequired.permission,
+            },
+          ];
+          return definition;
+        },
+        null
+      );
+    }
     this.fastify.get(path, async (reply, params, query, request) => {
       let handleResponse = await self.handleRequest(
         path,
         serviceName,
-        permissionRequired,
-        require2FA,
-        roles || [],
         request as FastifyRequestPath<string>,
         reply,
+        permissionRequired,
         allowedTokenTypes
       );
       if (!handleResponse.success) {
-        if (optionalAuth === true)
-          return await listener(
-            reply,
-            null,
-            null,
-            null,
-            params,
-            query,
-            (eTag: string, config: ReplyRequestCacheConfig) =>
-              self.canSendNewDocumentCache(
-                request as FastifyRequestPath<string>,
-                reply,
-                eTag,
-                config
-              ),
-            request
-          );
         return reply
           .status(handleResponse.code || 400)
           .send(handleResponse.message || "Server Error");
@@ -580,7 +693,7 @@ export class Service
         reply,
         handleResponse.token!,
         handleResponse.clientId!,
-        handleResponse.roles!,
+        handleResponse.fields,
         params,
         query,
         (eTag: string, config: ReplyRequestCacheConfig) =>
@@ -598,44 +711,37 @@ export class Service
   public async post<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string | null,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
-    optionalAuth: boolean = false,
-    require2FA: boolean = false
+    permissionRequired: PermissionRequired,
+    listener: FastifyBodyRequestHandler<Path>
   ): Promise<void> {
     const self = this;
+    if (permissionRequired !== null) {
+      this.addCapability(
+        serviceName,
+        BetterPortalCapabilityInternal.permissions,
+        PermissionAction,
+        async (token, clientId, key, query) => {
+          let definition: Array<PermissionDefinition> = [
+            {
+              path: path,
+              pathMethod: "GET",
+              ...permissionRequired.permission,
+            },
+          ];
+          return definition;
+        },
+        null
+      );
+    }
     this.fastify.post(path, async (reply, params, query, body, request) => {
       let handleResponse = await self.handleRequest(
         path,
         serviceName,
-        permissionRequired,
-        require2FA,
-        roles || [],
         request as FastifyRequestPath<string>,
         reply,
-        allowedTokenTypes
+        permissionRequired
       );
       if (!handleResponse.success) {
-        if (optionalAuth === true)
-          return await listener(
-            reply,
-            null,
-            null,
-            null,
-            params,
-            body,
-            query,
-            (eTag: string, config: ReplyRequestCacheConfig) =>
-              self.canSendNewDocumentCache(
-                request as FastifyRequestPath<string>,
-                reply,
-                eTag,
-                config
-              ),
-            request
-          );
         return reply
           .status(handleResponse.code || 400)
           .send(handleResponse.message || "Server Error");
@@ -644,7 +750,7 @@ export class Service
         reply,
         handleResponse.token!,
         handleResponse.clientId!,
-        handleResponse.roles!,
+        handleResponse.fields,
         params as ParamsFromPath<Path>,
         body,
         query,
@@ -663,46 +769,39 @@ export class Service
   public async put<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string | null,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
-    optionalAuth: boolean = false,
-    require2FA: boolean = false
+    permissionRequired: PermissionRequired,
+    listener: FastifyBodyRequestHandler<Path>
   ): Promise<void> {
     const self = this;
+    if (permissionRequired !== null) {
+      this.addCapability(
+        serviceName,
+        BetterPortalCapabilityInternal.permissions,
+        PermissionAction,
+        async (token, clientId, key, query) => {
+          let definition: Array<PermissionDefinition> = [
+            {
+              path: path,
+              pathMethod: "GET",
+              ...permissionRequired.permission,
+            },
+          ];
+          return definition;
+        },
+        null
+      );
+    }
     this.fastify.put<any>(
       path.endsWith("/") ? path.substring(0, path.length - 1) : path,
       async (reply, params, query, body, request) => {
         let handleResponse = await self.handleRequest(
           path,
           serviceName,
-          permissionRequired,
-          require2FA,
-          roles || [],
           request as FastifyRequestPath<string>,
           reply,
-          allowedTokenTypes
+          permissionRequired
         );
         if (!handleResponse.success) {
-          if (optionalAuth === true)
-            return await listener(
-              reply,
-              null,
-              null,
-              null,
-              params,
-              body,
-              query,
-              (eTag: string, config: ReplyRequestCacheConfig) =>
-                self.canSendNewDocumentCache(
-                  request as FastifyRequestPath<string>,
-                  reply,
-                  eTag,
-                  config
-                ),
-              request
-            );
           return reply
             .status(handleResponse.code || 400)
             .send(handleResponse.message || "Server Error");
@@ -711,7 +810,7 @@ export class Service
           reply,
           handleResponse.token!,
           handleResponse.clientId!,
-          handleResponse.roles!,
+          handleResponse.fields,
           params as ParamsFromPath<Path>,
           body,
           query,
@@ -731,46 +830,39 @@ export class Service
   public async delete<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string | null,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
-    optionalAuth: boolean = false,
-    require2FA: boolean = false
+    permissionRequired: PermissionRequired,
+    listener: FastifyBodyRequestHandler<Path>
   ): Promise<void> {
     const self = this;
+    if (permissionRequired !== null) {
+      this.addCapability(
+        serviceName,
+        BetterPortalCapabilityInternal.permissions,
+        PermissionAction,
+        async (token, clientId, key, query) => {
+          let definition: Array<PermissionDefinition> = [
+            {
+              path: path,
+              pathMethod: "GET",
+              ...permissionRequired.permission,
+            },
+          ];
+          return definition;
+        },
+        null
+      );
+    }
     this.fastify.delete<any>(
       path.endsWith("/") ? path.substring(0, path.length - 1) : path,
       async (reply, params, query, body, request) => {
         let handleResponse = await self.handleRequest(
           path,
           serviceName,
-          permissionRequired,
-          require2FA,
-          roles || [],
           request as FastifyRequestPath<string>,
           reply,
-          allowedTokenTypes
+          permissionRequired
         );
         if (!handleResponse.success) {
-          if (optionalAuth === true)
-            return await listener(
-              reply,
-              null,
-              null,
-              null,
-              params,
-              body,
-              query,
-              (eTag: string, config: ReplyRequestCacheConfig) =>
-                self.canSendNewDocumentCache(
-                  request as FastifyRequestPath<string>,
-                  reply,
-                  eTag,
-                  config
-                ),
-              request
-            );
           return reply
             .status(handleResponse.code || 400)
             .send(handleResponse.message || "Server Error");
@@ -779,7 +871,7 @@ export class Service
           reply,
           handleResponse.token!,
           handleResponse.clientId!,
-          handleResponse.roles!,
+          handleResponse.fields,
           params as ParamsFromPath<Path>,
           body,
           query,
@@ -799,46 +891,39 @@ export class Service
   public async patch<Path extends string>(
     serviceName: string,
     path: Path,
-    permissionRequired: string | null,
-    listener: FastifyBodyRequestHandler<Path>,
-    roles?: Array<string>,
-    allowedTokenTypes: EJWTTokenType = EJWTTokenType.req,
-    optionalAuth: boolean = false,
-    require2FA: boolean = false
+    permissionRequired: PermissionRequired,
+    listener: FastifyBodyRequestHandler<Path>
   ): Promise<void> {
     const self = this;
+    if (permissionRequired !== null) {
+      this.addCapability(
+        serviceName,
+        BetterPortalCapabilityInternal.permissions,
+        PermissionAction,
+        async (token, clientId, key, query) => {
+          let definition: Array<PermissionDefinition> = [
+            {
+              path: path,
+              pathMethod: "GET",
+              ...permissionRequired.permission,
+            },
+          ];
+          return definition;
+        },
+        null
+      );
+    }
     this.fastify.patch<Path>(
       path,
       async (reply, params, query, body, request) => {
         let handleResponse = await self.handleRequest(
           path,
           serviceName,
-          permissionRequired,
-          require2FA,
-          roles || [],
           request as FastifyRequestPath<string>,
           reply,
-          allowedTokenTypes
+          permissionRequired
         );
         if (!handleResponse.success) {
-          if (optionalAuth === true)
-            return await listener(
-              reply,
-              null,
-              null,
-              null,
-              params,
-              body,
-              query,
-              (eTag: string, config: ReplyRequestCacheConfig) =>
-                self.canSendNewDocumentCache(
-                  request as FastifyRequestPath<string>,
-                  reply,
-                  eTag,
-                  config
-                ),
-              request
-            );
           return reply
             .status(handleResponse.code || 400)
             .send(handleResponse.message || "Server Error");
@@ -847,7 +932,7 @@ export class Service
           reply,
           handleResponse.token!,
           handleResponse.clientId!,
-          handleResponse.roles!,
+          handleResponse.fields,
           params as ParamsFromPath<Path>,
           body,
           query,
@@ -867,19 +952,17 @@ export class Service
   private async handleRequest<Path extends string>(
     path: Path,
     serviceName: string,
-    permissionRequired: string | null,
-    require2FA: boolean,
-    roles: Array<string>,
     request: FastifyRequestPath<"/">,
     reply: FastifyReply,
-    tokenType?: EJWTTokenType
+    permissionRequired: PermissionRequired,
+    tokenType: EJWTTokenType = EJWTTokenType.req
   ): Promise<{
     success: boolean;
     code?: number;
     message?: string;
     token?: AuthToken;
     clientId?: string;
-    roles?: Array<string>;
+    fields?: Array<string>;
   }> {
     let token: AuthToken;
 
@@ -889,18 +972,37 @@ export class Service
       CleanStringStrength.url
     );
     if (host.indexOf("//") < 0) {
-      this.log.warn("A client requested from ({host}) is invalid //", { host });
+      await this.log.warn(
+        "A client requested from ({host}) is invalid /1/ (referer:{referer})(origin:{origin})",
+        {
+          host,
+          referer: request.headers.referer as any,
+          origin: request.headers.origin as any,
+        }
+      );
+      console.log(request.headers);
       return { success: false, code: 400, message: "Invalid request" };
     }
     host = host.split("//")[1];
     if (host.indexOf("/") < 0) {
-      this.log.warn("A client requested from ({host}) is invalid /", { host });
+      await this.log.warn(
+        "A client requested from ({host}) is invalid /2/ (referer:{referer})(origin:{origin})",
+        {
+          host,
+          referer: request.headers.referer as any,
+          origin: request.headers.origin as any,
+        }
+      );
       return { success: false, code: 400, message: "Invalid request" };
     }
     host = host.split("/")[0];
     host = host.toLowerCase();
 
-    this.log.info("[REQUEST] ({host}){URL}", { host, URL: path });
+    await this.log.info("[REQUEST] ({host}){URL} [{tokenType}]", {
+      host,
+      URL: path,
+      tokenType,
+    });
     reply.header(
       "Cache-Control",
       "no-store, no-cache, max-age=0, must-revalidate"
@@ -910,7 +1012,7 @@ export class Service
         success: true,
         token: undefined,
         clientId: undefined,
-        roles: undefined,
+        fields: undefined,
       };
     }
     try {
@@ -921,7 +1023,7 @@ export class Service
       if (tempToken === false)
         return { success: false, code: 401, message: "Invalid auth" };
       if (tempToken === true)
-        return { success: false, code: 401, message: "Invalid auth" };
+        return { success: false, code: 401, message: "Invalid token" };
       token = tempToken;
     } catch (Exc) {
       return { success: false, code: 403, message: "Server error" };
@@ -933,42 +1035,36 @@ export class Service
       return { success: false, code: 401, message: "Invalid path" };
     /*if (token.host !== host)
       return { success: false, code: 401, message: "Invalid app" };*/
-    if (permissionRequired === "") {
-      // Null ignores any auth flow, whereas a blank string still validates requests if they contain an auth token.
+
+    if (permissionRequired.optional) {
+      // Require a logged in user, but don't require any permissions
       return {
         success: true,
         token,
         clientId: undefined,
-        roles: undefined,
+        fields: permissionRequired.permission.fields
+          ? permissionRequired.permission.fields.map((x) => x.fieldPath)
+          : undefined,
       };
     }
-    //let clients = this.getClientsAvailToMe(token.clients);
+
     if (
       Tools.isNullOrUndefined(token.clientId) ||
       Tools.isNullOrUndefined(token.clientPermissions)
     )
       return { success: false, code: 403, message: "Invalid client" };
+
     if (
       this._userHasPermission(
         token.clientPermissions,
         serviceName,
-        permissionRequired
+        permissionRequired.permission
       )
     ) {
-      if (require2FA) {
-        if (!token.has2FASetup)
-          return { success: false, code: 407, message: "2FA Setup required" };
-        const now = new Date().getTime();
-        if (token.last2FATime < now - this._service2FAMaxTime)
-          return { success: false, code: 407, message: "OTP required" };
-      }
       return {
         success: true,
         token,
         clientId: token.clientId!,
-        roles: roles.filter((x) =>
-          this._userHasPermission(token.clientPermissions!, serviceName, x)
-        ),
       };
     }
     return { success: false, code: 403, message: "No permissions" };
@@ -977,24 +1073,87 @@ export class Service
   private _userHasPermission(
     permissions: ClientPermissions,
     serviceName: string,
-    permissionRequired: string
-  ): boolean {
+    permissionRequired: BasePermission
+  ): { permission: boolean; fields?: Array<string> } {
     if (Tools.isArray(permissions._)) {
       if (permissions._.indexOf("root") >= 0) {
-        return true;
+        return {
+          permission: true,
+          fields: Tools.isNullOrUndefined(permissionRequired.fields)
+            ? []
+            : permissionRequired.fields.map((x) => x.fieldPath),
+        }; // defining a service in root gives full root permissions to the service
       }
-      if (permissions._.indexOf(permissionRequired) >= 0) {
-        return true;
+      if (permissions._.indexOf(serviceName.toLowerCase()) >= 0) {
+        return {
+          permission: true,
+          fields: Tools.isNullOrUndefined(permissionRequired.fields)
+            ? []
+            : permissionRequired.fields.map((x) => x.fieldPath),
+        }; // defining a service in root gives full root permissions to the service
       }
     }
     if (Tools.isArray(permissions[serviceName.toLowerCase()])) {
-      if (permissions[serviceName.toLowerCase()].indexOf("root") >= 0)
-        return true;
-      if (
-        permissions[serviceName.toLowerCase()].indexOf(permissionRequired) >= 0
-      )
-        return true;
+      let permissionsList = permissions[serviceName.toLowerCase()].filter(
+        (x) => x.indexOf(`${permissionRequired.id}:`) === 0
+      );
+      if (permissionsList.length === 0) return { permission: false };
+      let availPerms = this._getUserPermissionFields(
+        permissions,
+        permissionsList,
+        serviceName,
+        permissionRequired
+      );
+      if (availPerms === false) return { permission: false };
+      return { permission: true, fields: availPerms };
     }
+    return { permission: false };
+  }
+
+  private _getUserPermissionFields(
+    permissions: ClientPermissions,
+    permissionsList: Array<string>,
+    serviceName: string,
+    permissionRequired: BasePermission
+  ): Array<string> | false {
+    if (!Tools.isArray(permissions[serviceName.toLowerCase()]))
+      throw "Service permissions should be an array";
+    let fields = permissionRequired.fields ?? [];
+
+    if (
+      permissionsList.filter(
+        (x) =>
+          x.indexOf(
+            `${permissionRequired.id}:${permissionRequired.action}:`
+          ) === 0
+      ).length > 0
+    ) {
+      if (
+        permissionsList.filter(
+          (x) =>
+            x.indexOf(
+              `${permissionRequired.id}:${permissionRequired.action}:*`
+            ) === 0
+        ).length > 0
+      )
+        return fields.map((x) => x.fieldPath);
+      return permissionsList
+        .filter(
+          (x) =>
+            x.indexOf(
+              `${permissionRequired.id}:${permissionRequired.action}:`
+            ) === 0
+        )
+        .map((x) => x.split(":")[2])
+        .filter((x) => fields.find((y) => y.id === x) !== undefined)
+        .map((x) => fields.find((y) => y.id === x)!.fieldPath);
+    }
+    if (
+      permissionsList.filter(
+        (x) => x.indexOf(`${permissionRequired.id}:*:`) === 0
+      ).length > 0
+    )
+      return fields.map((x) => x.fieldPath);
     return false;
   }
 }
