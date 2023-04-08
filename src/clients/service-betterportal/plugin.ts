@@ -3,7 +3,6 @@ import {
   ServicesBase,
   ServicesClient,
 } from "@bettercorp/service-base";
-import { MyPluginConfig } from "../../plugins/service-betterportal/sec.config";
 import type {
   BetterPortalCallable,
   BetterPortalBasicEvents,
@@ -28,8 +27,7 @@ export class betterPortal extends ServicesClient<
   ServiceCallable,
   ServiceCallable,
   ServiceCallable,
-  BetterPortalCallable,
-  MyPluginConfig
+  BetterPortalCallable
 > {
   private readonly _serviceName: string;
   private readonly _pluginBase: string;
